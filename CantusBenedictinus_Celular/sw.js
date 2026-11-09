@@ -5,7 +5,7 @@
    La página es la MISMA que la del PC (web/index.html): solo cambia quién contesta api/…
    Generado por src/build.py: no editar el archivo de celular/, sino src/celular/sw.src.js. */
 'use strict';
-const VERSION = '2.36.0';
+const VERSION = '2.36.1';
 const CACHE = 'cantus-app-' + VERSION;
 const L = {"EXT_AUDIO": {".wav": "audio/wav", ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".oga": "audio/ogg", ".m4a": "audio/mp4", ".webm": "audio/webm", ".flac": "audio/flac"}, "TIPOS": ["Antífona", "Cántico", "Cántico evangélico", "Ejercicio", "Himno", "Lectura", "Lectura breve", "Oración", "Preces", "Responsorio", "Responsorio breve", "Rúbrica", "Salmo", "Versículo"], "HORAS": ["Completas", "Hora intermedia", "I Vísperas", "Invitatorio", "Laudes", "Nona", "Oficio de lectura", "Sexta", "Tercia", "Vísperas"], "TIEMPOS": ["Adviento", "Cuaresma", "Navidad", "Ordinario", "Pascua", "Semana Santa"], "SECCIONES": ["Antífona mariana", "Común", "Conclusión", "Cántico evangélico", "Examen de conciencia", "Himno", "Introducción", "Invitatorio", "Lectura breve", "Melodía", "Oración", "Padre nuestro", "Preces", "Primera lectura", "Responsorio 1", "Responsorio 2", "Responsorio 3", "Responsorio breve", "Salmo invitatorio", "Salmodia", "Salmodia complementaria", "Segunda lectura", "Te Deum", "Tercera lectura", "Versículo"], "DIAS": ["Domingo", "Jueves", "Lunes", "Martes", "Miércoles", "Sábado", "Viernes"], "TIPOS_DOC": ["Canto y música", "Documento del Magisterio", "Estudio o catequesis", "Liturgia de las Horas", "Otro", "Salterio"], "CONFIG_CLAVES": ["acustica", "ajuste", "alt", "aprendiz", "ayuda", "bordon", "cantor", "guia_estilo", "guia_instr", "guia_tempo", "instrumento", "mi_coro", "natural", "nivel", "notas", "oficio_hi", "oficio_inv", "oficio_lect", "oficio_mariana", "oficio_orden", "oficio_santos", "oficio_silencio", "perfil_tonal", "pref", "silaba", "soplo", "tesitura", "timbre", "voces_a", "voces_b", "vol", "voz"]};                                  // listas de validación, copiadas de servidor.py al construir
 const APP = ['./', './index.html', './manifest.webmanifest', './icono-192.png', './icono-512.png'];
@@ -389,8 +389,8 @@ async function importar(paq) {
   });
   if (paq.configuracion && typeof paq.configuracion === 'object')
     await tx('configuracion', 'readwrite', async s => { for (const [k, v] of Object.entries(paq.configuracion)) if (L.CONFIG_CLAVES.includes(k) && String(v).length <= 40) await prom(s.configuracion.put({ clave: k, valor: String(v) })); });
-  const mapaDocs = {};
   const existentes = await todos('documentos');
+  const mapaDocs = Object.fromEntries(existentes.map(d => [d.titulo + '|' + d.nombre_original, d.id]));   // también los ya importados en otra parte
   for (const dd of paq.documentos || []) {
     const titulo = String(dd.titulo || 'Documento').slice(0, 200), nombre = String(dd.nombre_original || 'documento.txt').slice(0, 200);
     const previo = existentes.find(d => d.titulo === titulo && d.nombre_original === nombre);
@@ -398,7 +398,7 @@ async function importar(paq) {
     mapaDocs[dd.clave] = await crearDocumento({ titulo, tipo: L.TIPOS_DOC.includes(dd.tipo) ? dd.tipo : 'Otro', nombre_original: nombre, notas: dd.notas }, (dd.paginas || []).map(String));
     docs_n++;
   }
-  const origenes = new Set(piezasPaq.map(x => String(x.origen || '')));
+  const origenes = new Set([...piezasPaq.map(x => String(x.origen || '')), ...(paq.conservar_origenes || []).map(String)]);   // importación por partes
   await tx(['piezas', 'melodias', 'audios'], 'readwrite', async s => {
     const todasP = await prom(s.piezas.getAll());
     for (let pref of paq.reemplaza || []) {

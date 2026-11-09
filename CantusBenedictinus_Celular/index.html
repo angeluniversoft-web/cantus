@@ -3359,7 +3359,7 @@ const EJEMPLOS = [
 ];
 const API = { activo: false };
 const CELULAR = true;            // la misma página sirve al PC (servidor.py) y al celular (sw.js con la base en el teléfono)
-const VERSION_APP = '2.36.0';
+const VERSION_APP = '2.36.1';
 let piezas = [...EJEMPLOS];
 let actual = piezas[0];
 
@@ -4631,12 +4631,50 @@ $('b-exportar').onclick = async () => {
   } catch (e) { toast('No se pudo exportar: ' + e.message); }
 };
 $('b-paquete').onclick = () => { if (!API.activo) return toast('Abre la versión instalada para importar el paquete.'); $('f-paquete').click(); };
+/* En el celular el paquete completo (decenas de MB) se lee en la página y se envía por partes a la base del
+   teléfono: así no se agota la memoria del service worker y cada parte es pequeña. Importar es idempotente
+   (por «origen»), por eso partir no cambia el resultado. */
+async function importarPorPartes(f) {
+  const mb = (f.size / 1048576).toFixed(1);
+  let texto;
+  try { texto = await f.text(); } catch (e) { throw new Error('el teléfono no pudo leer el archivo (' + mb + ' MB): ' + e.message); }
+  texto = texto.replace(/^\uFEFF/, '');
+  let paq;
+  try { paq = JSON.parse(texto); }
+  catch (e) {
+    const ini = texto.slice(0, 60).replace(/\s+/g, ' ');
+    throw new Error('«' + f.name + '» (' + mb + ' MB) no es un JSON completo. Empieza con «' + ini + '». ' +
+      (texto.length < 200 ? 'Está casi vacío: vuelve a exportarlo.' : /^\s*</.test(texto) ? 'Es una página web, no el paquete: descarga el archivo .json.' :
+       'Puede que se haya cortado al pasarlo al celular: envíalo como documento (no como foto ni enlace) o por Drive.'));
+  }
+  texto = null;
+  if (!paq || paq.formato !== 'cantus-paquete') throw new Error('Este archivo no es un paquete de Cantus Benedictinus');
+  const base = { formato: paq.formato, version: paq.version || 1, titulo: paq.titulo || f.name };
+  const tot = { creadas: 0, actualizadas: 0, melodias: 0, quitadas: 0, conservadas: 0, muestras: 0, documentos: 0, audios: 0, titulo: base.titulo };
+  const enviar = async (parte) => {
+    const r = await fetch('api/paquete', { method: 'POST', body: JSON.stringify({ ...base, ...parte }), headers: { 'Content-Type': 'application/json' } });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText);
+    for (const k of Object.keys(tot)) if (typeof j[k] === 'number') tot[k] += j[k];
+  };
+  const piezas = paq.piezas || [], docs = paq.documentos || [], aud = paq.audios || [];
+  const pasos = 2 + docs.length + Math.ceil(piezas.length / 1500) + Math.ceil(aud.length / 10) + ((paq.muestras || []).length ? 1 : 0);
+  let n = 0; const avance = (q) => toast(`Importando ${f.name} (${mb} MB): ${q} · ${Math.round(100 * (++n) / pasos)} %`);
+  await enviar({ configuracion: paq.configuracion }); avance('ajustes');
+  for (const d of docs) { await enviar({ documentos: [d] }); avance('documento «' + d.titulo + '»'); }
+  for (let i = 0; i < piezas.length; i += 1500) { await enviar({ piezas: piezas.slice(i, i + 1500) }); avance('piezas ' + Math.min(i + 1500, piezas.length) + ' de ' + piezas.length); }
+  if ((paq.muestras || []).length) { await enviar({ muestras: paq.muestras }); avance('voces'); }
+  for (let i = 0; i < aud.length; i += 10) { await enviar({ audios: aud.slice(i, i + 10) }); avance('audios'); }
+  if ((paq.reemplaza || []).length) await enviar({ reemplaza: paq.reemplaza, conservar_origenes: piezas.map(x => x.origen).filter(Boolean) });
+  avance('listo');
+  return tot;
+}
 $('f-paquete').onchange = async () => {
   const f = $('f-paquete').files[0]; $('f-paquete').value = ''; if (!f) return;
   toast('Importando ' + f.name + '…');
   try {
-    const r = await fetch('api/paquete', { method: 'POST', body: f, headers: { 'Content-Type': 'application/json' } });
-    const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText);
+    const j = CELULAR ? await importarPorPartes(f) : await (async () => {
+      const r = await fetch('api/paquete', { method: 'POST', body: f, headers: { 'Content-Type': 'application/json' } });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText); return j; })();
     try { aplicarAjustes(await api('configuracion')); } catch (e) {}      // un paquete completo trae también los ajustes
     piezas = [...await api('piezas'), ...EJEMPLOS]; actual = piezas[0]; renderTodo(); actualizarEstado();
     if (j.muestras) { try { await cargarMuestras(); } catch (e) {} }
