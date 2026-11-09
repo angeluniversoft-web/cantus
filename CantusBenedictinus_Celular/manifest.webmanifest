@@ -1,0 +1,25 @@
+{
+ "name": "Cantus Benedictinus Hispánicus",
+ "short_name": "Cantus",
+ "lang": "es",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "orientation": "any",
+ "background_color": "#2b1d1a",
+ "theme_color": "#2b1d1a",
+ "description": "Rezar y cantar la Liturgia de las Horas a la manera benedictina",
+ "icons": [
+  {
+   "src": "icono-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "icono-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any maskable"
+  }
+ ]
+}
