@@ -205,6 +205,13 @@ body.modo-oficio #voces-panel, body.modo-oficio .pauta-caja{display:none}
 .parte .falta-msg{font:.92rem var(--f-ui);color:var(--tinta-2);margin:0}
 .parte .aviso-propio{font:.85rem var(--f-ui);color:var(--vela);border-left:3px solid var(--vela);padding:2px 8px;margin:0}
 .bloque-tit{font:600 .9rem var(--f-ui);color:var(--tinta-2);margin-top:4px}
+.mi-canto{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin:2px 0 4px}
+.mi-canto button{font:600 .78rem var(--f-ui);padding:3px 9px;border-radius:999px;border:1px solid var(--linea);background:transparent;color:var(--tinta-2);cursor:pointer}
+.mi-canto button.tiene{border-color:#a3241c;color:#a3241c}
+#grabador{position:fixed;inset:0;background:rgba(10,12,18,.55);display:grid;place-items:center;z-index:50;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+#grabador .caja{background:var(--hoja);color:var(--tinta);border:1px solid var(--linea);border-radius:12px;padding:18px;max-width:640px;width:100%;max-height:88vh;overflow:auto;display:grid;gap:12px}
+#grabador .txt-g{font-size:1.05rem;line-height:1.6;max-height:30vh;overflow:auto;border:1px solid var(--linea);border-radius:8px;padding:10px}
+#grabador .nivel{height:8px;border-radius:4px;background:var(--linea);overflow:hidden}#grabador .nivel i{display:block;height:100%;width:0;background:#2f8a4a}
 .bloque{display:flex;flex-direction:column;gap:6px}
 .bloque .verso{grid-template-columns:5.6rem minmax(0,1fr)}
 .bloque .linea-v{font-size:1.08rem;line-height:2.2}
@@ -385,17 +392,21 @@ fieldset.oficio legend{font:700 .8rem var(--f-ui);color:var(--rubrica);padding:0
       <div class="acciones">
         <button class="btn prim" id="of-cantar" type="button"><span class="ico">♫</span> Cantar la hora completa</button>
         <button class="btn prim" id="of-dia" type="button"><span class="ico">☼</span> Cantar el día completo</button>
+        <button class="btn prim" id="of-aprender" type="button"><span class="ico">✎</span> Aprender esta hora (escucha y repite)</button>
         <button class="btn" id="of-guiainst" type="button"><span class="ico">♪</span> Guía instrumental de la hora (yo canto)</button>
         <button class="btn" id="of-stop" type="button">■ Detener</button>
         <button class="btn" id="of-midi" type="button">MIDI de la hora (con letra)</button>
+        <button class="btn" id="of-midi-ou" type="button">MIDI para OpenUtau</button>
+        <button class="btn" id="of-midi-sv" type="button">MIDI para Synthesizer V</button>
       </div>
       <details>
         <summary class="nota-pie" style="cursor:pointer">Ajustes del oficio</summary>
         <div class="of-ajustes" style="margin-top:8px">
           <label class="campo" for="of-orden">Orden del oficio<select id="of-orden"><option value="romano">Liturgia de las Horas (como en mis tomos)</option><option value="benedictino">Benedictino: Regla de San Benito, caps. 8-18</option></select></label>
-          <label class="campo" for="of-tonos">Tonos del canto<select id="of-tonos"><option value="ol-20260308:todas">Como la grabación del Oficio de lectura (8-III-2026), en todas las horas</option><option value="ol-20260308:ol">Como esa grabación, solo en el Oficio de lectura</option><option value="">Los modos de cada pieza (libro)</option></select></label>
+          <label class="campo" for="of-vozclara">Partes leídas<select id="of-vozclara"><option value="leidas">Con voz clara (la voz en español del equipo): lecturas, oración, preces, monición</option><option value="no">Recitadas con la voz del coro</option></select></label>
+          <label class="campo" for="of-tonos">Tonos del canto<select id="of-tonos"><option value="ol-20260308:todas">Como las grabaciones, en todas las horas</option><option value="">Los modos de cada pieza (libro)</option></select></label>
           <label class="campo" for="of-inv">Invitatorio<select id="of-inv"><option value="auto">Con la primera hora que rece hoy (OGLH 35)</option><option value="lectura">Antes del Oficio de lectura</option><option value="laudes">Antes de Laudes</option><option value="no">Sin Invitatorio</option></select></label>
-          <label class="campo" for="of-hi">Salmodia del día en<select id="of-hi"><option>Tercia</option><option selected>Sexta</option><option>Nona</option></select></label>
+          <label class="campo" for="of-hi">Salmodia del día en<select id="of-hi"><option>Tercia</option><option selected>Sexta</option><option>Nona</option><option value="Todas">Las tres (como el libro impreso del día)</option></select></label>
           <label class="campo" for="of-lect">Lecturas del Oficio de lectura<select id="of-lect"><option value="bienal">Leccionario bienal (como muchos monasterios)</option><option value="tomos">Solo mis tomos (ciclo anual)</option></select></label>
           <label class="campo" for="of-santos">Santos<select id="of-santos"><option value="oblig">Solemnidades, fiestas y memorias obligatorias</option><option value="todas">También las memorias libres</option><option value="no">No celebrar el santoral</option></select></label>
           <label class="campo" for="of-sil">Silencio después de cada salmo<select id="of-sil"><option value="0">Sin pausa</option><option value="3">3 segundos</option><option value="6">6 segundos</option><option value="10">10 segundos</option></select></label>
@@ -674,21 +685,32 @@ const Motor = (() => {
   /* Perfiles tonales tomados de grabaciones: para cada parte, el modo y la nota de recitación (clase de altura).
      La octava la pone la tesitura del usuario. */
   const PERFILES = {
-    'ol-20260308': { nombre: 'Grabación: Oficio de lectura, III domingo de Cuaresma (8-III-2026)', partes: {
+    'ol-20260308': { metrica: { silaba: 0.29, final: 1.2, flexa: 0.35, media: 1.35, verso: 1.9,
+        nota: 'medida en la salmodia de la grabación (Sal 144, 63 hemistiquios): sílaba 0,29 s; la última apenas más larga; pausa en el asterisco 1,35 s; entre versos, al cambiar de coro, 1,9 s' },
+      nombre: 'Grabación: Oficio de lectura, III domingo de Cuaresma (8-III-2026)', partes: {
       'inv-v': { tenor: 'A', nota: 'recitado en La' }, intro: { tenor: 'A', nota: 'recitado en La' },
       'inv-salmo': { modo: 3, tenor: 'C', nota: 'Mi menor: recitación en Do, final en Mi (Modo III)' },
       himno: { modo: 1, tenor: 'A', nota: 'Re menor: en torno a La, final en Re (Modo I)' },
-      salmodia: { modo: 9, tenor: 'Bb', nota: 'Mi♭ mayor: recitación en Si♭, mediante en Fa, final en Mi♭' },
+      salmodia: { tenor: 'Bb', nota: 'cada salmo en un tono distinto, recitando a la altura de la grabación (Si♭)' },
       versiculo: { tenor: 'E', nota: 'recto tono en Mi' },
       lectura1: { tenor: 'D', nota: 'leída, voz hablada en torno a Re' }, lectura2: { tenor: 'D', nota: 'leída, voz hablada en torno a Re' }, lectura3: { tenor: 'D', nota: 'leída' },
       resp1: { tenor: 'E', nota: 'en Mi' }, resp2: { tenor: 'E', nota: 'en Mi' }, resp3: { tenor: 'E', nota: 'en Mi' },
       oracion: { tenor: 'E', nota: 'recto tono en Mi, cadencia Mi–Re–Mi' }, fin: { tenor: 'C', nota: 'Fa mayor: recitación en Do, final en Fa' },
       // para las demás horas (opción «todas las horas»), por clase de parte
-      'canto:salmodia': { modo: 9, tenor: 'Bb', nota: 'Mi♭ mayor: recitación en Si♭, final en Mi♭' }, 'canto:evangelico': { modo: 9, tenor: 'Bb', nota: 'Mi♭ mayor: recitación en Si♭, final en Mi♭' },
+      'canto:salmodia': { tenor: 'Bb', nota: 'cada salmo en un tono distinto, recitando a la altura de la grabación (Si♭)' }, 'canto:evangelico': { tenor: 'Bb', nota: 'en un tono distinto de los salmos, recitando a la altura de la grabación (Si♭)' },
       'canto:invitatorio': { modo: 3, tenor: 'C', nota: 'Mi menor: recitación en Do, final en Mi (Modo III)' },
       'canto:himno': { modo: 1, tenor: 'A', nota: 'Re menor (Modo I); si el himno tiene melodía propia, se canta con ella' }, 'canto:versiculo': { tenor: 'E', nota: 'recto tono en Mi' },
       'canto:lectura': { tenor: 'D', nota: 'leída, en torno a Re' }, 'canto:responsorio': { tenor: 'E', nota: 'en Mi' },
       'canto:oracion': { tenor: 'E', nota: 'recto tono en Mi' }, 'canto:preces': { tenor: 'E', nota: 'en Mi' }, 'canto:padrenuestro': { tenor: 'E', nota: 'recto tono en Mi' } } },
+    /* Grabación de Completas enviada por el usuario (10-XI-2026, 2 min 16 s): invocación, examen de conciencia y comienzo del himno.
+       Solo alturas y ritmo (sílabas por segundo medidas en la grabación); la voz es la sintética de la app. */
+    'co-20261110': { nombre: 'Grabación: Completas (10-XI-2026)', hora: 'Completas', paraTodas: ['intro'], partes: {
+      intro: { tenor: 'G', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'recitado en Sol; la respuesta cae Sol–Mi–Do; el Gloria sube a La y termina en Sol' },
+      'examen-inv': { tenor: 'C#', cerca: -7, estilo: 'hablado', silaba: 0.27, nota: 'monición hablada (voz en torno a Do♯)' },
+      'examen-sil': { silencio: 3, nota: 'silencio breve, como en la grabación' },
+      'examen-conf': { tenor: 'D', cerca: -5, estilo: 'co-confiteor', silaba: 0.205, nota: '«Yo confieso» en recto tono sobre Re; en la coma sube a Fa; cada punto cae a Sol' },
+      'examen-abs': { tenor: 'C#', cerca: -7, estilo: 'hablado', silaba: 0.25, nota: 'absolución hablada; «Amén» de todos' },
+      himno: { modo: 6, tenor: 'F#', final: 'D', silaba: 0.24, nota: 'Re mayor: recitación en Fa♯, final en Re (Modo VI en Re); si el himno tiene melodía propia, se canta con ella terminando en Re' } } },
   };
 
   // Tesituras: nota objetivo para la recitación (MIDI internacional, C4 = 60 = "Do central")
@@ -899,6 +921,9 @@ const Motor = (() => {
   function lineaTiempo(versos, op) {
     const tono = TONOS[op.modo || 8];
     const S = op.silaba || 0.30, sh = op.desplazamiento || 0;
+    // métrica de la salmodia (v2.41): con el perfil de la grabación, las pausas y el final medidos en ella, a la velocidad elegida
+    const MT = op.metrica, kM = MT ? S / MT.silaba : 1;
+    const fFinal = MT ? MT.final : 2.0, pFlexa = MT ? MT.flexa * kM : S * 0.6, pMedia = MT ? MT.media * kM : S * 2.4, pVerso = MT ? MT.verso * kM : S * 3.2;
     const ev = [], ac = [];
     let t = 0.4;
     const tenorT = midi(tono.tenor) + sh;
@@ -916,7 +941,7 @@ const Motor = (() => {
         let dur = S;
         if (s.rol === 'acento') dur = S * 1.12;            // acento ligero (Solesmes): eleva, apenas alarga
         if (s.rol === 'entonacion') dur = S * 1.1;
-        if (ultima && finalLargo) dur = S * 2.0;
+        if (ultima && finalLargo) dur = S * fFinal;
         const notas = s.notas || [tenorT - sh];
         const dn = dur / notas.length * (notas.length > 1 ? 1.25 : 1);
         notas.forEach((m, j) => {
@@ -929,20 +954,20 @@ const Motor = (() => {
     versos.forEach((v, vi) => {
       coroAct = v.coro || 'A';
       cambiaAcorde(0, t);
-      if (v.flex) { parte(v.flex, vi, 'flex', false); t += S * 0.6; }
+      if (v.flex) { parte(v.flex, vi, 'flex', false); t += pFlexa; }
       if (v.h1.length) {
         const accI = v.h1.findIndex(s => s.rol === 'acento');
         // cambio de acorde en la tónica de la mediante
         const antes = ev.length;
         parte(v.h1, vi, 'h1', true);
         if (accI >= 0) { const e = ev.slice(antes).find(x => x.idx === accI && x.primera); if (e) cambiaAcorde(1, e.t); }
-        t += S * 2.4;                                   // pausa del asterisco (respiración)
+        t += pMedia;                                    // pausa del asterisco (respiración)
       }
       const antes2 = ev.length;
       parte(v.h2, vi, 'h2', true);
       const accT = v.h2.findIndex(s => s.rol === 'acento');
       if (accT >= 0) { const e = ev.slice(antes2).find(x => x.idx === accT && x.primera); if (e) cambiaAcorde(2, e.t); }
-      t += S * 3.2;                                     // pausa entre versos / cambio de coro
+      t += pVerso;                                      // pausa entre versos / cambio de coro
       if (op.soloInicio) return;
     });
     if (acActual) acActual.d = t - acActual.t;
@@ -1432,6 +1457,37 @@ const Motor = (() => {
   }
 
 
+  /** MIDI solo de la voz, con letra en cada nota, para cantarlo en OpenUtau o Synthesizer V (v2.40).
+      programa 'openutau': una sílaba por nota; las notas de un melisma llevan «+».
+      programa 'synthv': la palabra entera en su primera nota, «+» en las demás sílabas de la palabra, «-» en los melismas. */
+  function exportarMidiCanto(tl, titulo, op = {}) {
+    const PPQ = 480, tick = (s) => Math.round(s * PPQ), sv = op.programa === 'synthv';
+    const limpia = (t) => (t || '').toLowerCase().replace(/[^a-záéíóúüñ]/g, '');
+    const meta = [{ tick: 0, orden: 0, datos: [0xff, 0x51, 3, 0x0f, 0x42, 0x40] }, { tick: 0, orden: 0, datos: [0xff, 0x03, ...vlq(utf8(titulo).length), ...utf8(titulo)] }];
+    const voz = [{ tick: 0, orden: 0, datos: [0xff, 0x03, ...vlq(utf8('Voz').length), ...utf8('Voz')] }];
+    const ev = tl.eventos.filter(e => e.sil && !e.tono);
+    // palabras: secuencia de sílabas hasta finPalabra
+    let palabra = [], enPalabra = false;
+    ev.forEach((e, k) => {
+      const on = tick(e.t), off = Math.max(on + 1, tick(e.t + e.d) - 2);
+      let letra;
+      if (!e.primera) letra = sv ? '-' : '+';
+      else if (!sv) letra = limpia(e.sil.txt) || 'a';
+      else {
+        if (!enPalabra) {                                   // primera sílaba de la palabra: la palabra completa
+          palabra = []; for (let j = k; j < ev.length; j++) { const x = ev[j]; if (!x.primera) continue; if (x.verso !== e.verso && palabra.length) break; palabra.push(limpia(x.sil.txt)); if (x.sil.finPalabra) break; }
+          letra = palabra.join('') || 'a'; enPalabra = !e.sil.finPalabra;
+        } else { letra = '+'; if (e.sil.finPalabra) enPalabra = false; }
+      }
+      const l = utf8(letra);
+      voz.push({ tick: on, orden: 1, datos: [0xff, 0x05, ...vlq(l.length), ...l] });
+      voz.push({ tick: on, orden: 2, datos: [0x90, e.midi, 90] });
+      voz.push({ tick: off, orden: 0, datos: [0x80, e.midi, 0] });
+    });
+    const cab = [0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 1, 0, 2, (PPQ >> 8) & 255, PPQ & 255];
+    return new Uint8Array([...cab, ...pista(meta), ...pista(voz)]);
+  }
+
   /* ---------- 8. Tonos de recitación del oficio ----------
      Verificados con el *Antiphonale Monasticum* (Desclée, 1934), «Toni communes», pp. 1232-1240
      (PDF 1268-1276). Valores en semitonos respecto de la cuerda (do en el libro; aquí se transporta a La).
@@ -1457,6 +1513,12 @@ const Motor = (() => {
     versiculoLV: { flexa: { acc: [0], post: [0] }, metrum: { acc: [0], post: [0] }, punctum: { acc: [0], post: [0], fin: [0, -1, -1, -3, -5, -3, -1, -3] }, interrog: { acc: [0], post: [0], fin: [-3] } },
     responsorio: { flexa: { acc: [0], post: [-2] }, metrum: { acc: [0], post: [-2] }, punctum: { acc: [-2], post: [-4] }, interrog: { acc: [-2], post: [0] } },   // los responsorios breves tienen melodía propia en el libro: esto es solo un recitado
     recto:       { flexa: { acc: [0], post: [0] }, metrum: { acc: [0], post: [0] },  punctum: { acc: [0], post: [-2] }, interrog: { acc: [0], post: [0] } },
+    // grabación de Completas (v2.38): invocación en Sol que cae Sol–Mi–Do; Gloria que sube a La y vuelve a Sol;
+    // «Yo confieso» en Re con la coma en Fa y el punto cayendo a Sol; voz hablada para la monición y la absolución
+    'co-intro':  { flexa: { acc: [0], post: [0] }, metrum: { acc: [0], post: [0] }, punctum: { acc: [0], post: [-3], fin: [-3, -7] }, interrog: { acc: [0], post: [0] } },
+    'co-gloria': { flexa: { acc: [0], post: [0] }, metrum: { acc: [0], post: [0] }, punctum: { acc: [2], post: [0] }, interrog: { acc: [0], post: [0] } },
+    'co-confiteor': { flexa: { acc: [3], post: [0] }, metrum: { acc: [3], post: [0] }, punctum: { acc: [0], post: [-7] }, interrog: { acc: [0], post: [0] } },
+    hablado:     { flexa: { acc: [1], post: [-2] }, metrum: { pre: [1], acc: [2], post: [-1] }, punctum: { pre: [1], acc: [0], post: [-3], fin: [-2, -4] }, interrog: { acc: [0], post: [3] } },
   };
   function frasesDe(texto) {
     const out = [];
@@ -1562,7 +1624,7 @@ const Motor = (() => {
     return { eventos: ev, acordes: [{ t: 0.2, d: t, k: 0, nombre: NOMBRES[((raiz % 12) + 12) % 12], notas: [raiz, raiz + 7] }], duracion: t + 0.5, tipo: 'antifona-melodica' };
   }
 
-  return { TONOS, PERFILES, PC, LU, ROMANOS, TESITURAS, NOMBRES, DOXOLOGIA, midi, nombre, prefiereBemoles, hz, silabear, tonica, silabasDeTexto, recitar, antifonaSimple, antifonaMelodica, lineaMelodica, lineaRecitada, frasesDe, ESTILOS, TENOR_REC,
+  return { exportarMidiCanto, TONOS, PERFILES, PC, LU, ROMANOS, TESITURAS, NOMBRES, DOXOLOGIA, midi, nombre, prefiereBemoles, hz, silabear, tonica, silabasDeTexto, recitar, antifonaSimple, antifonaMelodica, lineaMelodica, lineaRecitada, frasesDe, ESTILOS, TENOR_REC,
            partirVerso, analizar, lineaTiempo, iniciador, desplazamiento, exportarMidi, guiaPronunciacion, exportarMidiGuia, detectarPiezas, leerMidi, melodiaDeMidi, alinearSilabas, himno, nombreAcorde };
 })();
 if (typeof module !== 'undefined') module.exports = Motor;
@@ -1850,6 +1912,9 @@ const Oficio = (() => {
   }
   const rangoDe = (p) => (p.rango && p.fecha && COL[p.fecha] ? COL[p.fecha] : FIJAS[p.fecha] ? FIJAS[p.fecha][1] : p.rango);
   /** Añade al día el santo que se celebra y su Común (rúbrica «Del Común de …» del santoral; el 2 de noviembre, Oficio de difuntos). */
+  // Celebraciones del calendario general que los tomos traen con textos propios pero sin ficha de calendario: [rango, nombre, común]
+  const SIN_FICHA = { '09-29': ['Fiesta', 'Santos Arcángeles Miguel, Gabriel y Rafael'], '10-02': ['Memoria', 'Santos Ángeles Custodios'],
+    '01-03': ['Memoria libre', 'Santísimo Nombre de Jesús'], '05-01': ['Memoria libre', 'San José Obrero', 'Común de santos varones'] };
   function conSanto(cal, P) {
     prepCol(P);
     if (cal.comun) return cal;
@@ -1858,7 +1923,10 @@ const Oficio = (() => {
     if (md === '11-02' && /difuntos/.test(cal.celebracion || '')) { comun = ['Oficio de difuntos']; rs = 'Conmemoración'; }
     else if (md) {
       const prio = (p) => /^osb:/.test(p.origen || '') ? 2 : /^col:/.test(p.origen || '') ? 1 : 0;
-      const r = P.filter(p => p.seccion === 'Común' && p.fecha === md && santoValido(rangoDe(p), cal)).sort((a, b) => (NIVEL[rangoDe(b)] - NIVEL[rangoDe(a)]) || (prio(b) - prio(a)))[0];   // a igual rango manda el calendario propio (de la Orden, luego de Colombia)
+      let r = P.filter(p => p.seccion === 'Común' && p.fecha === md && santoValido(rangoDe(p), cal)).sort((a, b) => (NIVEL[rangoDe(b)] - NIVEL[rangoDe(a)]) || (prio(b) - prio(a)))[0];   // a igual rango manda el calendario propio (de la Orden, luego de Colombia)
+      if (!r && SIN_FICHA[md] && santoValido(SIN_FICHA[md][0], cal)) {   // calendario general: el tomo trae los textos propios pero no la ficha del santo
+        r = { seccion: 'Común', fecha: md, rango: SIN_FICHA[md][0], notas: SIN_FICHA[md][2] || '', titulo: 'Común — ' + SIN_FICHA[md][1] };
+      }
       if (r) { comun = (r.notas || '').split('|').filter(Boolean);
         if (!comun.length) { const otra = P.find(p => p.seccion === 'Común' && p.fecha === md && p !== r && p.notas); if (otra) comun = otra.notas.split('|').filter(Boolean); }   // el Ordo da el rango; el tomo, el Común
         rs = rangoDe(r); nombre = r.titulo.replace(/^Común — /, '').replace(/\s*\(\d\d-\d\d\)$/, ''); }
@@ -1868,6 +1936,16 @@ const Oficio = (() => {
         else if (/apóstol/i.test(cal.celebracion)) comun = ['Común de apóstoles'];
         else if (/Basílica|Dedicación/.test(cal.celebracion)) comun = ['Común de la dedicación de una iglesia'];
         if (comun.length) rs = FIJAS[md][1];
+      }
+      if (!comun.length && /^(Solemnidad|Fiesta|Memoria)$/.test(rs || '') && nombre && !/Señor|Cristo|Jesús|Ángeles|Arcángeles/.test(nombre)) {       // el tomo no dijo el Común: se deduce del título (OGLH 233-234)
+        if (/ap[oó]stol|evangelista|^(San|Santo)?\s*(Santiago|Pedro|Pablo|Andrés|Juan|Tomás|Felipe|Bartolomé|Mateo|Simón|Judas|Matías|Bernabé|Marcos|Lucas)\b/i.test(nombre)) comun = ['Común de apóstoles'];
+        else if (/m[aá]rtires/i.test(nombre)) comun = ['Común de varios mártires'];
+        else if (/m[aá]rtir/i.test(nombre)) comun = ['Común de un mártir'];
+        else if (/María|Virgen María|Nuestra Señora/.test(nombre)) comun = ['Común de santa María Virgen'];
+        else if (/virgen/i.test(nombre)) comun = ['Común de vírgenes'];
+        else if (/obispo|papa|presb[ií]tero|pastor|misioner|Javier|doctor/i.test(nombre)) comun = ['Común de pastores'];
+        else if (/^Santa\b/.test(nombre)) comun = ['Común de santas mujeres'];
+        else if (/^San(to)?\b/.test(nombre)) comun = ['Común de santos varones'];
       }
       // Memorias móviles de la Virgen: Santa María, Madre de la Iglesia (lunes después de Pentecostés, decreto de 2018) e
       // Inmaculado Corazón de María (sábado después del Sagrado Corazón). Si coinciden con otra memoria obligatoria, ambas son libres.
@@ -1956,6 +2034,9 @@ const Oficio = (() => {
   };
   function armar(hora, cal0, P, op = {}) {
     OPC = op;
+    // 26, 27 y 28 de diciembre: Laudes y Oficio de lectura del santo; las Vísperas son de la Octava de Navidad
+    if (hora === 'Vísperas' && ['12-26', '12-27', '12-28'].includes((cal0.fecha || '').slice(5)) && cal0.tiempo === 'Navidad' && !cal0.comun && !/Sagrada Familia/.test(cal0.celebracion || ''))
+      cal0 = { ...cal0, comun: [], comunes: [], rangoSanto: null, nombreSanto: null, octavaVisperas: true };
     cal0 = conSanto(cal0, P);
     let cal = cal0, horaDatos = hora;
     // Sábado (y vísperas de solemnidad) por la tarde: I Vísperas del domingo
@@ -2001,19 +2082,33 @@ const Oficio = (() => {
         let horasS = [horaDatos], seccion = 'Salmodia';
         if (['Tercia', 'Sexta', 'Nona'].includes(hora)) {
           const corriente = op.hiCorriente || 'Sexta';
-          if (hora === corriente && cal.rango !== 'Solemnidad' && cal.salterio) horasS = ['Hora intermedia', hora]; else { horasS = [hora]; seccion = 'Salmodia complementaria'; }   // OGLH 81-83
+          if ((hora === corriente || corriente === 'Todas') && cal.rango !== 'Solemnidad' && cal.salterio) horasS = ['Hora intermedia', hora]; else { horasS = [hora]; seccion = 'Salmodia complementaria'; }   // OGLH 81-83
           // antífona única de los tiempos fuertes
           const antT = buscar(P, cal, { horas: [hora], seccion: 'Salmodia' }).filter(x => x.p.tipo === 'Antífona' && x.p.tiempo === cal.tiempo);
           if (antT.length && tiemposFuertes.has(cal.tiempo)) parte.antifonaUnica = antT[0].p.antifona || antT[0].p.texto;
           parte.complementaria = seccion === 'Salmodia complementaria';
         }
-        const cands = buscar(P, cal, { horas: horasS, seccion, salterio: true }).filter(x => x.p.tipo !== 'Antífona');
+        // Miércoles de Ceniza: en Laudes, salmos y cántico del viernes de la semana III (Ps 50, Jr 14, Ps 99); el resto, del miércoles IV
+        const domOctava = cal.tiempo === 'Pascua' && cal.semana === 2 && cal.diaIdx === 0;   // Domingo II de Pascua: día octava, salmodia como en la octava
+        let calS = cal;
+        if (horaDatos === 'Laudes' && cal.celebracion === 'Miércoles de Ceniza') { calS = { ...cal, salterio: 3, dia: 'Viernes', diaIdx: 5, celebracion: null }; parte.rubrica = 'Miércoles de Ceniza: salmodia del viernes de la semana III.'; }
+        else if (horaDatos === 'Laudes' && domOctava) { calS = { ...cal, salterio: 1 }; parte.rubrica = 'Domingo de la octava de Pascua: salmos del domingo de la semana I.'; }
+        else if (cal.tiempo === 'Semana Santa' && cal.diaIdx === 0 && horaDatos === 'Vísperas') calS = { ...cal, tiempo: 'Cuaresma' };   // Domingo de Ramos: cántico 1 P 2 como los domingos de Cuaresma
+        const cands = buscar(P, calS, { horas: horasS, seccion, salterio: true }).filter(x => x.p.tipo !== 'Antífona');
         const porOrden = new Map();
         cands.forEach(x => { const o = x.p.orden || 1; if (!porOrden.has(o)) porOrden.set(o, x.p); });
         parte.piezas = [...porOrden.keys()].sort((a, b) => a - b).map(o => porOrden.get(o));
         if (!parte.piezas.length && cal.tiempo === 'Navidad' && !cal.salterio && ['Oficio de lectura', 'Vísperas'].includes(horaDatos)) {   // octava: salmos de la Natividad
           const nav = P.filter(p => p.seccion === 'Salmodia' && p.hora === horaDatos && p.celebracion === 'Natividad del Señor' && p.tipo !== 'Antífona').sort((a, b) => (a.orden || 0) - (b.orden || 0));
           if (nav.length) { parte.piezas = nav; parte.rubrica = 'Octava de Navidad: salmos de la solemnidad de la Natividad (con sus antífonas).'; }
+        }
+        if (horaDatos === 'Oficio de lectura' && domOctava) {
+          const lun = P.filter(p => p.seccion === 'Salmodia' && p.hora === 'Oficio de lectura' && p.tiempo === 'Pascua' && p.semana_tiempo === 1 && p.dia === 'Lunes' && p.tipo !== 'Antífona').sort((a, b) => (a.orden || 0) - (b.orden || 0));
+          if (lun.length) { parte.piezas = lun; parte.rubrica = 'Domingo de la octava de Pascua: salmos 1, 2 y 3, como el lunes de la octava.'; }
+        }
+        if (horaDatos === 'Vísperas' && ((cal.tiempo === 'Pascua' && cal.semana === 1 && cal.diaIdx >= 1 && cal.diaIdx <= 5) || domOctava)) {   // octava de Pascua: Vísperas con los salmos del Domingo de Pascua
+          const pas = P.filter(p => p.seccion === 'Salmodia' && p.hora === 'Vísperas' && /^Domingo de Pascua/.test(p.celebracion || '') && p.tipo !== 'Antífona').sort((a, b) => (a.orden || 0) - (b.orden || 0));
+          if (pas.length) { parte.piezas = pas; parte.rubrica = 'Octava de Pascua: salmos de las Vísperas del Domingo de Pascua.'; }
         }
         if (hora === 'Laudes' && cal.propio && /Solemnidad|Fiesta/.test(cal.rango) && !parte.piezas.some(x => x.fecha || x.celebracion)) {     // solemnidades y fiestas: salmos del domingo I
           const dom = P.filter(p => p.seccion === 'Salmodia' && p.hora === 'Laudes' && p.semana === 1 && p.dia === 'Domingo' && p.tipo !== 'Antífona' && (!p.tiempo || p.tiempo === 'Ordinario'))
@@ -2345,17 +2440,28 @@ const Oficio = (() => {
   const GLORIA = 'Gloria al Padre, y al Hijo, y al Espíritu Santo. Como era en el principio, ahora y siempre, por los siglos de los siglos. Amén.';
   const limpiarVR = (t) => t.replace(/^(V\/\.|R\/\.|V\.|R\.)\s*/, '');
   function filasVersiculo(texto, op, parte) {
-    const filas = [];
+    const filas = [], est = (op && op.estiloDe && op.estiloDe(parte)) || 'versiculo', estG = (op && op.estiloDe && op.estiloDe(parte, 'gloria')) || est;
     texto.split('\n').map(x => x.trim()).filter(Boolean).forEach(l => {
       if (/^Gloria al Padre/.test(l)) {
-        filas.push({ voz: 'cantor', etiqueta: 'Cantor', frases: M.recitar('Gloria al Padre, y al Hijo, y al Espíritu Santo.', 'versiculo') });
-        filas.push({ voz: 'todos', etiqueta: 'Todos', frases: M.recitar('Como era en el principio, ahora y siempre, por los siglos de los siglos. Amén.' + (parte && parte.aleluya ? ' Aleluya.' : ''), 'versiculo') });
+        filas.push({ voz: 'cantor', etiqueta: 'Cantor', frases: M.recitar('Gloria al Padre, y al Hijo, y al Espíritu Santo.', estG) });
+        filas.push({ voz: 'todos', etiqueta: 'Todos', frases: M.recitar('Como era en el principio, ahora y siempre, por los siglos de los siglos. Amén.' + (parte && parte.aleluya ? ' Aleluya.' : ''), estG) });
         return;
       }
       const esR = /^R\/?\./.test(l);
-      filas.push({ voz: esR ? 'todos' : 'cantor', etiqueta: esR ? 'R/. Todos' : 'V/. Cantor', frases: M.recitar(limpiarVR(l), 'versiculo') });
+      filas.push({ voz: esR ? 'todos' : 'cantor', etiqueta: esR ? 'R/. Todos' : 'V/. Cantor', frases: M.recitar(limpiarVR(l), est) });
     });
     return filas;
+  }
+  /** Examen de conciencia del libro: monición, primera fórmula («Yo confieso») y absolución. */
+  function partirExamen(texto) {
+    const t = (texto || '').replace(/\r/g, '');
+    const i1 = t.search(/\n\s*1ª/), i2 = t.search(/\n\s*2ª/), iT = t.search(/\n?Tras el silencio/);
+    if (i1 < 0 || i2 < i1) return null;
+    const monicion = t.slice(0, iT > 0 ? iT : i1).replace(/\s+/g, ' ').trim();
+    const formula = t.slice(i1, i2).replace(/^\s*1ª\.?-?/, '').replace(/\s+/g, ' ').trim();
+    const m = t.match(/Se concluye diciendo:\s*V\/\.\s*([\s\S]*?)\s*R\/\./);
+    if (!monicion || !formula) return null;
+    return { monicion, formula, absolucion: m ? m[1].replace(/\s+/g, ' ').trim() : null };
   }
   function filasResponsorio(texto) {
     const ls = texto.split('\n').map(x => x.trim()).filter(Boolean);
@@ -2397,16 +2503,28 @@ const Oficio = (() => {
   function bloques(hora, op) {
     const out = [];
     const S = op.silaba || 0.3;
+    const SP = (parte) => (op.silabaDe && op.silabaDe(parte)) || S;        // perfil de una grabación: velocidad medida en ella
     const recit = (parte, filas) => {
-      const tl = M.lineaRecitada(filas, { silaba: S, desplazamiento: op.desp(6, parte), nivel: op.nivel });
+      const tl = M.lineaRecitada(filas, { silaba: SP(parte), desplazamiento: op.desp(6, parte), nivel: op.nivel });
       out.push({ parte, filas, tl, tipo: 'recitado' });
     };
-    const MD = (parte, m) => (op.modoDe ? op.modoDe(parte, m) : m);       // perfil tonal de una grabación: modo por parte
-    const encab = (p, parte) => p.titulo.replace(/ — .*$/, '') + (p.notas && !/sin Gloria/.test(p.notas) ? ' · ' + p.notas : '') + ' · Modo ' + M.ROMANOS[parte ? MD(parte, p.modo || 8) : (p.modo || 8)];
+    const MD = (parte, m) => (parte && parte.tonoFijo ? m : op.modoDe ? op.modoDe(parte, m) : m);       // perfil tonal de una grabación: modo por parte
+    const encab = (p, parte, modo) => p.titulo.replace(/ — .*$/, '') + (p.notas && !/sin Gloria/.test(p.notas) ? ' · ' + p.notas : '') + ' · ' + (modo === 9 ? 'Tono de la grabación' : 'Modo ' + M.ROMANOS[modo || (parte ? MD(parte, p.modo || 8) : (p.modo || 8))]);
+    // v2.38.2: cada salmo de la hora en un tono distinto (1.º, 2.º, 3.º y el cántico), combinación fija para cada fecha y hora
+    let tonosHora = null, nTono = 0;
+    const tonoSiguiente = () => {
+      if (!op.variarTonos || !op.variarTonos()) return null;
+      if (!tonosHora) {
+        let h = 2166136261; for (const c of ((hora.cal && hora.cal.fecha) || hora.titulo || '') + '|' + (hora.hora || '')) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+        tonosHora = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+        for (let i = tonosHora.length - 1; i > 0; i--) { h = (Math.imul(h, 1103515245) + 12345) >>> 0; const j = h % (i + 1); [tonosHora[i], tonosHora[j]] = [tonosHora[j], tonosHora[i]]; }
+      }
+      return tonosHora[nTono++ % tonosHora.length];
+    };
     const salmo = (parte, p, antifona, opc = {}) => {
       const modo = MD(parte, p.modo || 8), sh = op.desp(modo, parte);
       const vs = versosConCoros(M.analizar(p.texto, { modo, doxologia: opc.gloria !== false && !/sin Gloria/i.test(p.notas || ''), alternar: op.alternar !== false, entonarCada: !!opc.entonarCada }), op);
-      const tl = M.lineaTiempo(vs, { modo, desplazamiento: sh, silaba: S, nivel: op.nivel });
+      const tl = M.lineaTiempo(vs, { modo, desplazamiento: sh, silaba: SP(parte), nivel: op.nivel, metrica: op.metrica ? op.metrica(parte) : null });
       tl.eventos.forEach(e => { e.voz = (op.cantor !== false && e.verso === 0 && (e.parte === 'flex' || e.parte === 'h1')) ? 'cantor' : (op.alternar === false ? 'todos' : e.coro); });
       out.push({ parte, filas: [{ versos: vs, titulo: p.titulo, modo }], tl, tipo: 'salmo', pieza: p, encabezado: opc.encabezado });
     };
@@ -2418,14 +2536,14 @@ const Oficio = (() => {
         if (sils.length) {
           const ms = sils.flatMap(x => x.notas).sort((a, b) => a - b), sh = op.despMel ? op.despMel({ melodia: ms.map(m => ({ m })) }) : 0;
           const corte = primera ? Math.max(1, sils.findIndex(x => /[,;:.]$/.test(x.txt)) + 1) : 0;
-          const tl = M.lineaMelodica(sils, { negra: (op.silaba || 0.3) * 2.1, desplazamiento: sh, cantorHasta: corte });
+          const tl = M.lineaMelodica(sils, { negra: SP(parte) * 2.1, desplazamiento: sh, cantorHasta: corte });
           out.push({ parte, filas: [{ voz: 'todos', etiqueta: 'Ant.', frases: [{ sils }], sh, melodia: 'Domingo Cols (Buenafuente)' + (mel.notas ? ' · ' + mel.notas.split(' · letra')[0] : '') }], tl, tipo: 'antifona', encabezado, cierre: !primera, melodica: true });
           return;
         }
       }
       modo = MD(parte, modo);
       const vs = M.antifonaSimple(texto, modo);
-      const tl = M.lineaTiempo(vs, { modo, desplazamiento: op.desp(modo, parte), silaba: S * 1.05, nivel: op.nivel });
+      const tl = M.lineaTiempo(vs, { modo, desplazamiento: op.desp(modo, parte), silaba: SP(parte) * 1.05, nivel: op.nivel });
       tl.eventos.forEach(e => { e.voz = primera && e.parte !== 'h2' ? 'cantor' : 'todos'; });
       out.push({ parte, filas: [{ versos: vs, antifona: true, modo }], tl, tipo: 'antifona', encabezado, cierre: !primera });
     };
@@ -2445,7 +2563,20 @@ const Oficio = (() => {
           { voz: 'todos', etiqueta: 'Todos', frases: M.recitar('Amén.', 'oracion') }]); break;
         case 'preces': recit(parte, filasPreces(p.texto)); break;
         case 'padrenuestro': recit(parte, [{ voz: 'todos', etiqueta: 'Todos', frases: M.recitar(p.texto.replace(/\n/g, ' ') + (/[.!]$/.test(p.texto.trim()) ? '' : '.') + ' Amén.', 'recto') }]); break;
-        case 'examen': out.push({ parte, filas: [{ texto: p.texto }], tl: { eventos: [], acordes: [], duracion: 10, tipo: 'silencio' }, tipo: 'silencio' }); break;
+        case 'examen': {
+          const ex = op.perfil && op.perfil({ ...parte, perfilId: 'examen-conf' }) && partirExamen(p.texto);
+          if (!ex) { out.push({ parte, filas: [{ texto: p.texto }], tl: { eventos: [], acordes: [], duracion: 10, tipo: 'silencio' }, tipo: 'silencio' }); break; }
+          // como en la grabación de Completas: monición hablada, silencio breve, «Yo confieso» de todos, absolución y Amén
+          const sub = (perfilId, nombre) => ({ ...parte, perfilId, nombre: nombre || '', sub: !nombre });   // mismo id: la tarjeta es una sola
+          const est = (id, d) => (op.estiloDe && op.estiloDe(sub(id))) || d;
+          recit(sub('examen-inv', parte.nombre), [{ voz: 'cantor', etiqueta: 'Cantor (preside)', frases: M.recitar(ex.monicion, est('examen-inv', 'lectura')) }]);
+          const sil = (op.perfil(sub('examen-sil')) || {}).silencio || 10;
+          out.push({ parte: sub('examen-sil'), filas: [{ texto: 'Silencio para el examen de conciencia.' }], tl: { eventos: [], acordes: [], duracion: sil, tipo: 'silencio' }, tipo: 'silencio' });
+          recit(sub('examen-conf'), [{ voz: 'todos', etiqueta: 'Todos', frases: M.recitar(ex.formula, est('examen-conf', 'recto')) }]);
+          if (ex.absolucion) recit(sub('examen-abs'), [{ voz: 'cantor', etiqueta: 'V/. Cantor (preside)', frases: M.recitar(ex.absolucion, est('examen-abs', 'oracion')) },
+            { voz: 'todos', etiqueta: 'R/. Todos', frases: M.recitar('Amén.', est('examen-abs', 'oracion')) }]);
+          break;
+        }
         case 'mariana': {
           const lineas = p.texto.split('\n').map(x => x.trim()).filter(Boolean);
           const vs = []; for (let i = 0; i < lineas.length; i += 2) vs.push(lineas.slice(i, i + 2).join(' * '));
@@ -2455,7 +2586,7 @@ const Oficio = (() => {
         case 'himno': {
           const mel = parte.id !== 'tedeum' && op.melodia && op.melodia(p);
           if (mel) {
-            const r = M.himno(p.texto, mel, { desplazamiento: op.despMel ? op.despMel(mel) : 0, nivel: op.nivel, alternar: op.alternar });
+            const r = M.himno(p.texto, mel, { desplazamiento: op.despMel ? op.despMel(mel, parte) : 0, nivel: op.nivel, alternar: op.alternar });
             r.tl.eventos.forEach(e => { e.voz = e.quien || ((e.versoReal ?? e.verso) === 0 && op.cantor !== false && e.parte === 'h1' ? 'cantor' : (op.alternar === false ? 'todos' : e.coro)); });
             out.push({ parte, filas: [{ versos: r.versos, himno: true, melodia: mel.titulo }], tl: r.tl, tipo: 'himno', pieza: p });
           } else {                                                     // tono de himno: cada pareja de versos sobre el tono del modo
@@ -2481,23 +2612,27 @@ const Oficio = (() => {
           break;
         }
         case 'salmodia': {
+          let modoUnica = null;
           parte.piezas.forEach((sp, k) => {
+            if (!parte.antifonaUnica || k === 0) modoUnica = tonoSiguiente();          // con antífona única, un solo tono para todos
+            sp = modoUnica ? { ...sp, modo: modoUnica } : sp;
             const modo = sp.modo || 8;
             const ant = parte.antifonaUnica || (parte.antPropias && parte.antPropias[k + 1]) || (parte.pascua ? (sp.antifona_pascual || (sp.antifona ? sp.antifona.replace(/\.?$/, '. Aleluya.') : null)) : sp.antifona);
             const primeraDeUnica = !parte.antifonaUnica || k === 0, ultimaDeUnica = !parte.antifonaUnica || k === parte.piezas.length - 1;
             const nombre = (k === 0 ? parte.nombre : '') ;
-            if (primeraDeUnica) antifona({ ...parte, nombre, sub: k > 0 }, ant, modo, true, encab(sp, parte));
-            salmo({ ...parte, nombre: primeraDeUnica && ant ? '' : nombre, sub: true }, sp, ant, { encabezado: primeraDeUnica && ant ? null : encab(sp, parte) });
-            if (ultimaDeUnica) antifona({ ...parte, nombre: '', sub: true }, ant, modo, false);
+            const mt = modoUnica ? { ...parte, tonoFijo: true } : parte;
+            if (primeraDeUnica) antifona({ ...mt, nombre, sub: k > 0 }, ant, modo, true, encab(sp, mt, modoUnica));
+            salmo({ ...mt, nombre: primeraDeUnica && ant ? '' : nombre, sub: true }, sp, ant, { encabezado: primeraDeUnica && ant ? null : encab(sp, mt, modoUnica) });
+            if (ultimaDeUnica) antifona({ ...mt, nombre: '', sub: true }, ant, modo, false);
           });
           break;
         }
         case 'antifonaSola': antifona(parte, parte.antifona, p.modo || 8, true); break;
         case 'evangelico': {
-          const modo = p.modo || 8;
-          antifona(parte, parte.antifona, modo, true);
-          salmo({ ...parte, nombre: parte.antifona ? '' : parte.nombre, sub: !!parte.antifona }, p, parte.antifona, { entonarCada: true });
-          antifona({ ...parte, nombre: '', sub: true }, parte.antifona, modo, false);
+          const tv = tonoSiguiente(), pe = tv ? { ...parte, tonoFijo: true } : parte, modo = tv || p.modo || 8;
+          antifona(pe, parte.antifona, modo, true);
+          salmo({ ...pe, nombre: parte.antifona ? '' : parte.nombre, sub: !!parte.antifona }, tv ? { ...p, modo } : p, parte.antifona, { entonarCada: true });
+          antifona({ ...pe, nombre: '', sub: true }, parte.antifona, modo, false);
           break;
         }
         default: recit(parte, [{ voz: 'cantor', etiqueta: 'Cantor', frases: M.recitar(p.texto, 'recto') }]);
@@ -3070,7 +3205,8 @@ const Coro = (() => {
       op: { timbre, alternar, cantor } */
   function cantar(ctx, mx, tl, t0, nodos, op = {}) {
     azar = 4242; T = TIMBRES[op.timbre] || TIMBRES.abadia;
-    if (op.aprendiz === 'todo' || (op.aprendiz === 'mios' && !op.miCoro)) {     // guía instrumental: no canta nadie, el usuario sigue al instrumento
+    if (op.aprendiz === 'mios' && !op.miCoro) op = { ...op, aprendiz: '' };      // v2.38.2: «mis versos» sin coro elegido: cantan los monjes (antes no cantaba nadie)
+    if (op.aprendiz === 'todo') {     // guía instrumental: no canta nadie, el usuario sigue al instrumento
       tl.eventos.forEach(e => { e.quien = quien(e, tl, op); }); return;
     }
     if (op.aprendiz === 'mios') op = { ...op, ayuda: 'silencio' };               // los monjes cantan el otro coro; en los versos del usuario, solo el instrumento
@@ -3101,7 +3237,7 @@ const Coro = (() => {
 
   /** Acompañamiento: órgano de tubos suave o piano, siempre por debajo de la voz */
   function acompanar(ctx, mx, tl, t0, nodos, op) {
-    if (op.aprendiz === 'todo' || op.aprendiz === 'mios') return guiaInstrumental(ctx, mx, tl, t0, nodos, op);
+    if (op.aprendiz === 'todo' || (op.aprendiz === 'mios' && op.miCoro)) return guiaInstrumental(ctx, mx, tl, t0, nodos, op);
     if (op.instrumento === 'mudo') return;
     const bus = ctx.createGain(); bus.gain.value = op.vol * 0.26;
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = op.instrumento === 'piano' ? 3400 : 1600;
@@ -3359,7 +3495,7 @@ const EJEMPLOS = [
 ];
 const API = { activo: false };
 const CELULAR = true;            // la misma página sirve al PC (servidor.py) y al celular (sw.js con la base en el teléfono)
-const VERSION_APP = '2.36.1';
+const VERSION_APP = '2.41.0';
 let piezas = [...EJEMPLOS];
 let actual = piezas[0];
 
@@ -3413,7 +3549,7 @@ async function detectarServidor() {
 
 /* ================= Ajustes ================= */
 let guiaForzada = false;                                              // el botón «Guía instrumental» la activa aunque el ajuste esté en «normal»
-const A = { modo: 8, tesitura: 'baritono', pref: 'blancas', ajuste: 0, silaba: 0.30, nivel: 1, instrumento: 'organo', vol: 0.3, timbre: 'abadia', acustica: 'abadia', cantor: true, voz: 'sintetica', oficio_inv: 'auto', oficio_hi: 'Sexta', oficio_mariana: '0', oficio_lect: 'bienal', oficio_santos: 'oblig', oficio_silencio: '0', oficio_orden: 'romano', dox: true, alt: true, ent: false, notas: true, mi_coro: '', ayuda: 'guia', voces_a: 6, voces_b: 6, natural: false, soplo: 'no', aprendiz: '', guia_instr: 'organo', bordon: true, guia_estilo: 'continuo', guia_tempo: 1.3, perfil_tonal: 'ol-20260308:todas' };
+const A = { modo: 8, tesitura: 'baritono', pref: 'blancas', ajuste: 0, silaba: 0.30, nivel: 1, instrumento: 'organo', vol: 0.3, timbre: 'abadia', acustica: 'abadia', cantor: true, voz: 'sintetica', oficio_inv: 'auto', oficio_hi: 'Sexta', oficio_mariana: '0', oficio_lect: 'bienal', oficio_santos: 'oblig', oficio_silencio: '0', oficio_orden: 'romano', dox: true, alt: true, ent: false, notas: true, mi_coro: '', ayuda: 'guia', voces_a: 6, voces_b: 6, natural: false, soplo: 'no', aprendiz: '', guia_instr: 'organo', bordon: true, guia_estilo: 'continuo', guia_tempo: 1.3, perfil_tonal: 'ol-20260308:todas', voz_clara: 'leidas' };
 function leerAjustes() {
   A.tesitura = $('s-tesitura').value; A.pref = $('s-pref').value; A.ajuste = +$('s-ajuste').value;
   A.silaba = +$('s-tempo').value; A.timbre = $('s-timbre').value; A.acustica = $('s-acustica').value; A.cantor = $('c-cantor').checked; A.nivel = +$('s-nivel').value; A.instrumento = $('s-instr').value; A.vol = +$('s-vol').value;
@@ -3438,11 +3574,12 @@ function aplicarAjustes(c) {
   if (c.oficio_silencio != null) { A.oficio_silencio = String(c.oficio_silencio); $('of-sil').value = String(c.oficio_silencio); }
   if (c.oficio_santos) { A.oficio_santos = c.oficio_santos; $('of-santos').value = c.oficio_santos; }
   if (c.oficio_orden) { A.oficio_orden = c.oficio_orden; $('of-orden').value = c.oficio_orden; }
-  if (c.perfil_tonal != null) { A.perfil_tonal = c.perfil_tonal; $('of-tonos').value = c.perfil_tonal; }
+  if (c.voz_clara != null) { A.voz_clara = c.voz_clara; $('of-vozclara').value = c.voz_clara; }
+  if (c.perfil_tonal != null) { A.perfil_tonal = c.perfil_tonal === 'ol-20260308:ol' ? 'ol-20260308:todas' : c.perfil_tonal; $('of-tonos').value = A.perfil_tonal; }   // v2.38: el tono de las grabaciones va en todas las horas
   if (c.oficio_mariana != null) { A.oficio_mariana = String(c.oficio_mariana); $('of-mar').value = String(c.oficio_mariana); }
 }
 function guardarAjustes() {
-  const c = { tesitura: A.tesitura, pref: A.pref, ajuste: A.ajuste, silaba: A.silaba, nivel: A.nivel, instrumento: A.instrumento, vol: A.vol, timbre: A.timbre, acustica: A.acustica, cantor: A.cantor ? 1 : 0, voz: A.voz, alt: A.alt ? 1 : 0, notas: A.notas ? 1 : 0, oficio_inv: A.oficio_inv, oficio_hi: A.oficio_hi, oficio_mariana: A.oficio_mariana, oficio_lect: A.oficio_lect, oficio_santos: A.oficio_santos, oficio_silencio: A.oficio_silencio, oficio_orden: A.oficio_orden, mi_coro: A.mi_coro, ayuda: A.ayuda, voces_a: A.voces_a, voces_b: A.voces_b, natural: A.natural ? 1 : 0, soplo: A.soplo, aprendiz: A.aprendiz, guia_instr: A.guia_instr, bordon: A.bordon ? 1 : 0, guia_estilo: A.guia_estilo, guia_tempo: A.guia_tempo, perfil_tonal: A.perfil_tonal };
+  const c = { tesitura: A.tesitura, pref: A.pref, ajuste: A.ajuste, silaba: A.silaba, nivel: A.nivel, instrumento: A.instrumento, vol: A.vol, timbre: A.timbre, acustica: A.acustica, cantor: A.cantor ? 1 : 0, voz: A.voz, alt: A.alt ? 1 : 0, notas: A.notas ? 1 : 0, oficio_inv: A.oficio_inv, oficio_hi: A.oficio_hi, oficio_mariana: A.oficio_mariana, oficio_lect: A.oficio_lect, oficio_santos: A.oficio_santos, oficio_silencio: A.oficio_silencio, oficio_orden: A.oficio_orden, mi_coro: A.mi_coro, ayuda: A.ayuda, voces_a: A.voces_a, voces_b: A.voces_b, natural: A.natural ? 1 : 0, soplo: A.soplo, aprendiz: A.aprendiz, guia_instr: A.guia_instr, bordon: A.bordon ? 1 : 0, guia_estilo: A.guia_estilo, guia_tempo: A.guia_tempo, perfil_tonal: A.perfil_tonal, voz_clara: A.voz_clara };
   try { localStorage.setItem('cantus-ajustes', JSON.stringify(c)); } catch (e) {}
   if (API.activo) api('configuracion', { method: 'PUT', body: JSON.stringify(c) }).catch(() => {});
 }
@@ -3733,9 +3870,10 @@ function audio() {
 }
 function opVoz() { return { timbre: A.timbre, acustica: A.acustica, alternar: A.alt, cantor: A.cantor, instrumento: A.instrumento, vol: A.vol, banco: A.voz !== 'sintetica' ? bancoActivo : null,
   miCoro: A.mi_coro, ayuda: A.ayuda, vocesA: A.voces_a, vocesB: A.voces_b, natural: A.natural, soplo: A.soplo,
-  aprendiz: guiaForzada && !A.aprendiz ? 'todo' : A.aprendiz, guiaInstr: A.guia_instr, bordon: A.bordon, guiaEstilo: A.guia_estilo }; }
+  aprendiz: guiaForzada && !A.aprendiz ? 'todo' : A.aprendiz === 'mios' && !A.mi_coro ? '' : A.aprendiz /* «mis versos» sin coro elegido: cantan los monjes */, guiaInstr: A.guia_instr, bordon: A.bordon, guiaEstilo: A.guia_estilo }; }
 /** Duración de la sílaba: con la guía instrumental, más pausada (como cantan los monjes) */
-function silabaUso() { return A.silaba * ((A.aprendiz || guiaForzada) ? (+A.guia_tempo || 1) : 1); }
+function guiaActiva() { return guiaForzada || A.aprendiz === 'todo' || (A.aprendiz === 'mios' && !!A.mi_coro); }
+function silabaUso() { return A.silaba * (guiaActiva() ? (+A.guia_tempo || 1) : 1); }
 function cantar(tl, t0) { Coro.cantar(ctx, mx, tl, t0, nodos, opVoz()); }
 function acompanar(tl, t0) { Coro.acompanar(ctx, mx, tl, t0, nodos, opVoz()); }
 function tocarTecla(m) {
@@ -3800,14 +3938,15 @@ function terminar() {
   document.querySelectorAll('.sil.activa,.verso.actual').forEach(x => x.classList.remove('activa', 'actual'));
 }
 function detener() {
-  if (typeof OF !== 'undefined') { OF.cadena = false; clearTimeout(OF.espera); }
+  if (typeof OF !== 'undefined') { OF.cadena = false; clearTimeout(OF.espera); clearInterval(OF.intGrab); }
   if (window.speechSynthesis) speechSynthesis.cancel();
   if (ctx) nodos.forEach(n => { try { n.stop && n.stop(); } catch (e) {} try { n.disconnect(); } catch (e) {} });
   nodos = []; terminar();
 }
 
 /* ================= Acciones ================= */
-function opTL() { return { modo: A.modo, desplazamiento: shift(), silaba: silabaUso(), nivel: A.nivel, instrumento: A.instrumento }; }
+function metricaModelo() { return A.perfil_tonal ? (M.PERFILES['ol-20260308'] || {}).metrica || null : null; }
+function opTL() { return { modo: A.modo, desplazamiento: shift(), silaba: silabaUso(), nivel: A.nivel, instrumento: A.instrumento, metrica: metricaModelo() }; }
 function lineaCompleta(v) {
   if (esHimno() && !v) return calcHimno().tl;
   if (!v && esInvitatorio()) { const ib = armarInvitatorio(); const u = O.unir(ib.bloques, 1.0); u.prefijoBloque = 'pi'; return u; }
@@ -3835,7 +3974,7 @@ function rectoTono() {
   tl.acordes.forEach(a => a.notas = a.notas.slice(0, 1).concat(A.nivel > 1 ? a.notas.slice(1) : []));
   return tl;
 }
-$('b-cantar').onclick = async () => { guiaForzada = false; await prepararVoz(); reproducir(lineaCompleta(), A.aprendiz ? 'Guía instrumental: canta tú' : 'Cantando con el coro de monjes'); };
+$('b-cantar').onclick = async () => { guiaForzada = false; await prepararVoz(); reproducir(lineaCompleta(), guiaActiva() ? 'Guía instrumental: canta tú' : 'Cantando con el coro de monjes'); };
 $('b-guiainst').onclick = async () => { guiaForzada = true; await prepararVoz(); reproducir(lineaCompleta(), 'Guía instrumental: sigue la melodía con tu voz'); };
 $('b-ini').onclick = async () => { await prepararVoz(); reproducir(esHimno() ? iniciadorHimno() : M.iniciador(versos, opTL()), 'Iniciador: escucha el tono y entra con el cantor'); };
 $('b-recto').onclick = async () => {                                  // lectura pausada, como recitan los monjes (velocidad de la guía)
@@ -3851,7 +3990,8 @@ function elegirVoz() {
   const pref = ['es-CO', 'es-MX', 'es-US', 'es-ES'];
   const rango = (v) => { const i = pref.indexOf(v.lang.replace('_', '-')); return i < 0 ? 9 : i; };
   vs.sort((a, b) => rango(a) - rango(b));
-  vozES = vs.find(v => /pablo|jorge|raul|raúl|gonzalo|alvaro|álvaro|diego|male|hombre/i.test(v.name)) || vs[0] || null;
+  const hombre = (v) => /pablo|jorge|raul|raúl|gonzalo|alvaro|álvaro|diego|gerardo|tomas|tomás|male|hombre/i.test(v.name), natural = (v) => /natural|online|neural/i.test(v.name);
+  vozES = vs.find(v => natural(v) && hombre(v) && /CO/.test(v.lang)) || vs.find(v => natural(v) && hombre(v)) || vs.find(v => natural(v) && /CO/.test(v.lang)) || vs.find(v => natural(v)) || vs.find(hombre) || vs[0] || null;
   $('estado-voz').textContent = vozES ? 'Voz hablada: ' + vozES.name.replace(/Microsoft |Google /, '') : 'Sin voz española instalada';
   $('estado-voz').classList.toggle('ok', !!vozES);
 }
@@ -4166,19 +4306,34 @@ function perfilDe(parte) {
   if (!A.perfil_tonal || !parte) return null;
   const [id, alcance] = A.perfil_tonal.split(':'), P = M.PERFILES[id]; if (!P) return null;
   const hora = (OF.armada && OF.armada.hora) || OF.hora;
+  // grabaciones de una hora concreta (Completas, 10-XI-2026): mandan en esa hora; lo que no esté en ellas sigue el perfil elegido
+  const k = parte.perfilId || parte.id;
+  // exacto: altura y velocidad de la grabación (sin el ajuste de semitonos ni la velocidad elegida)
+  for (const Q of Object.values(M.PERFILES)) if (Q.hora && Q.hora === hora && Q.partes[k]) return { ...Q.partes[k], exacto: true };
+  // partes que son iguales en todas las horas (la invocación «Dios mío, ven en mi auxilio»): como la grabación que las tiene
+  if (hora !== 'Oficio de lectura') for (const Q of Object.values(M.PERFILES)) if (Q.paraTodas && Q.paraTodas.includes(k) && Q.partes[k]) return { ...Q.partes[k], exacto: true };
   if (alcance === 'ol' && !(hora === 'Oficio de lectura' || parte.hora === 'Invitatorio' || /^inv/.test(parte.id || ''))) return null;
-  return P.partes[parte.id] || P.partes['canto:' + parte.canto] || null;
+  if (parte.perfilId) return null;
+  const e = P.partes[parte.id] || P.partes['canto:' + parte.canto];
+  return e ? { ...e, exacto: true } : null;
 }
 function despPerfil(m, e) {            // nota de recitación con la clase de altura del perfil, en la octava de la tesitura
-  const obj = M.TESITURAS[A.tesitura] || 57, pc = M.PC[e.tenor];
+  const obj = (M.TESITURAS[A.tesitura] || 57) + (e.cerca || 0), pc = M.PC[e.tenor];   // cerca: la octava de la grabación respecto a la voz
   const tenor = obj + ((((pc - obj) % 12) + 18) % 12) - 6;
-  return tenor - M.midi(M.TONOS[m].tenor) + A.ajuste;
+  return tenor - M.midi(M.TONOS[m].tenor) + (e.exacto ? 0 : A.ajuste);
 }
 function opOficio() {
   return { silaba: silabaUso(), nivel: A.nivel, alternar: A.alt, cantor: A.cantor, melodia: melodiaPara, antMelodia,
     modoDe: (parte, m) => { const e = perfilDe(parte); return e && e.modo ? e.modo : m; },
+    perfil: perfilDe, variarTonos: () => !!A.perfil_tonal, metrica: () => metricaModelo(),
+    silabaDe: (parte) => { const e = perfilDe(parte); return e && e.silaba ? e.silaba * (e.exacto ? silabaUso() / A.silaba : silabaUso() / 0.30) : null; },   // exacto: la velocidad de la grabación (solo la guía de aprendiz la hace más lenta)
+    estiloDe: (parte, k) => { const e = perfilDe(parte); return e ? (k === 'gloria' ? e.estiloGloria || e.estilo : e.estilo) || null : null; },
     desp: (m, parte) => { const e = perfilDe(parte); return e && e.tenor ? despPerfil(m, e) : M.desplazamiento(m, A.tesitura, A.pref) + A.ajuste; },
-    despMel: (mel) => { const ms = mel.melodia.map(x => x.m).sort((a, b) => a - b), med = ms[Math.floor(ms.length / 2)] || 67, obj = (M.TESITURAS[A.tesitura] || 57) + 5; return (A.pref === 'blancas' ? Math.round((obj - med) / 12) * 12 : obj - med) + A.ajuste; } };
+    despMel: (mel, parte) => { const ms = mel.melodia.map(x => x.m).sort((a, b) => a - b), med = ms[Math.floor(ms.length / 2)] || 67, obj = (M.TESITURAS[A.tesitura] || 57) + 5;
+      let d = (A.pref === 'blancas' ? Math.round((obj - med) / 12) * 12 : obj - med) + A.ajuste;
+      const e = parte && perfilDe(parte), ult = mel.melodia.length && mel.melodia[mel.melodia.length - 1].m;
+      if (e && e.final && ult) { let k = ((M.PC[e.final] - (ult + d)) % 12 + 12) % 12; if (k > 6) k -= 12; d += k; }   // que termine en la final de la grabación
+      return d; } };
 }
 function vista(v) {
   detener();
@@ -4204,8 +4359,8 @@ function plantillaFalta(parte, ar) {
     semana: parte.id === 'salmodia' && !propio ? cal.salterio : null, ciclo: null, fecha: propio && /^\d/.test('') ? null : null, celebracion: propio ? cal.celebracion : null,
     tomo: cal.tomo, modo: 8, texto: '', antifona: null };
 }
-function renderSilabas(lin, sils, prefijo, vi, parte, sh) {
-  let ultima = ''; const bem = M.prefiereBemoles(sils.flatMap(s => (s.notas || []).map(m => m + sh)));
+function renderSilabas(lin, sils, prefijo, vi, parte, sh, bemB) {
+  let ultima = ''; const bem = bemB != null ? bemB : M.prefiereBemoles(sils.flatMap(s => (s.notas || []).map(m => m + sh)));
   sils.forEach((s, i) => {
     const sp = document.createElement('span'); sp.className = 'sil'; sp.id = `${prefijo}-${vi}-${parte}-${i}`;
     if (s.marca) sp.classList.add('ton');
@@ -4219,8 +4374,19 @@ function renderSilabas(lin, sils, prefijo, vi, parte, sh) {
   });
 }
 function renderBloque(b, bi, cont, pref = 'ob') {
+  const ptB = b.parte && perfilDe(b.parte), tnB = ptB && ptB.tenor || '';
+  // una sola grafía (♭ o ♯) en todo el bloque; con el tono de una grabación, la de su nota de recitación (Si♭ → bemoles; Fa♯ → sostenidos)
+  const bemB = /b$/.test(tnB) ? true : /#$/.test(tnB) ? false : b.tl && b.tl.eventos && b.tl.eventos.length ? M.prefiereBemoles(b.tl.eventos.map(e => e.midi)) : null;
   const op = opOficio();
   const caja = document.createElement('div'); caja.className = 'bloque' + (b.tipo === 'antifona' ? ' antifona' : ''); caja.id = pref + bi;
+  if (pref === 'ob' && b.tl && b.tl.eventos.length && piezaDeBloque(b) && API.activo) {
+    const bar = document.createElement('div'); bar.className = 'mi-canto'; bar.dataset.clave = claveBloque(b);
+    const bg = document.createElement('button'); bg.type = 'button'; bg.className = 'b-grabar';
+    bg.textContent = MIS.has(bar.dataset.clave) ? '♪ Con mi grabación · cambiar' : '● Grabar mi canto';
+    bg.classList.toggle('tiene', MIS.has(bar.dataset.clave)); bg.onclick = () => abrirGrabador(bi);
+    const ba = document.createElement('button'); ba.type = 'button'; ba.textContent = '✎ Aprender esta parte'; ba.onclick = () => abrirAprender(bi);
+    bar.append(ba, bg); caja.appendChild(bar);
+  }
   if (b.encabezado) { const t = document.createElement('div'); t.className = 'bloque-tit'; t.textContent = b.encabezado; caja.appendChild(t); }
   const pt = !b.parte || b.parte.sub ? null : perfilDe(b.parte);
   if (pt && pt.nota && !(b.tipo === 'himno' && b.filas[0] && b.filas[0].melodia)) { const t = document.createElement('div'); t.className = 'nota-pie'; t.textContent = '♪ Tono: ' + pt.nota; caja.appendChild(t); }
@@ -4238,9 +4404,9 @@ function renderBloque(b, bi, cont, pref = 'ob') {
       else coro.textContent = A.alt ? 'Coro ' + v.coro : 'Todos';
       if (b.tipo !== 'antifona' && esMio(v.coro, vi === 0 && A.cantor && b.tipo !== 'himno' && !fila0.himno)) { fila.classList.add('mio'); coro.innerHTML += '<br><span class="tu">Tú</span>'; }
       const lin = document.createElement('div'); lin.className = 'linea-v' + (A.notas ? ' con-notas' : '');
-      if (v.flex) { renderSilabas(lin, v.flex, pref + bi, vi, 'flex', sh); const r = document.createElement('span'); r.className = 'rub'; r.textContent = '†'; lin.appendChild(r); }
-      if (v.h1 && v.h1.length) { renderSilabas(lin, v.h1, pref + bi, vi, 'h1', sh); if (!v.himno) { const r = document.createElement('span'); r.className = 'rub'; r.textContent = '*'; lin.appendChild(r); } }
-      renderSilabas(lin, v.h2 || [], pref + bi, vi, 'h2', sh);
+      if (v.flex) { renderSilabas(lin, v.flex, pref + bi, vi, 'flex', sh, bemB); const r = document.createElement('span'); r.className = 'rub'; r.textContent = '†'; lin.appendChild(r); }
+      if (v.h1 && v.h1.length) { renderSilabas(lin, v.h1, pref + bi, vi, 'h1', sh, bemB); if (!v.himno) { const r = document.createElement('span'); r.className = 'rub'; r.textContent = '*'; lin.appendChild(r); } }
+      renderSilabas(lin, v.h2 || [], pref + bi, vi, 'h2', sh, bemB);
       fila.append(coro, lin); caja.appendChild(fila);
     });
     if (fila0.melodia) { const t = document.createElement('div'); t.className = 'nota-pie'; t.textContent = '♫ Melodía: ' + fila0.melodia; caja.appendChild(t); }
@@ -4251,7 +4417,7 @@ function renderBloque(b, bi, cont, pref = 'ob') {
       const coro = document.createElement('div'); coro.className = 'coro' + (f.voz === 'cantor' ? ' cantor' : ''); coro.textContent = f.etiqueta || voces[f.voz] || '';
       if (A.mi_coro && (f.voz === A.mi_coro || (f.voz === 'todos' && f.etiqueta !== 'Ant.'))) { fila.classList.add('mio'); coro.innerHTML += '<br><span class="tu">Tú</span>'; }
       const lin = document.createElement('div'); lin.className = 'linea-v' + (A.notas ? ' con-notas' : '');
-      renderSilabas(lin, f.frases.flatMap(x => x.sils), pref + bi, fi, 'h2', sh);
+      renderSilabas(lin, f.frases.flatMap(x => x.sils), pref + bi, fi, 'h2', sh, bemB);
       fila.append(coro, lin); caja.appendChild(fila);
     });
     if (fila0.melodia) { const t = document.createElement('div'); t.className = 'nota-pie'; t.textContent = '♫ Melodía: ' + fila0.melodia; caja.appendChild(t); }
@@ -4297,7 +4463,7 @@ function renderOficio() {
     } else p2.textContent = 'Lo no propio se toma del ' + ar.cal.comun[0] + (ar.cal.rangoSanto && !/Solemnidad|Fiesta|Conmemoración/.test(ar.cal.rangoSanto) ? ' (memoria: salmodia y horas menores del día).' : '.');
     c.appendChild(p2);
   }
-  OF.armada = ar; OF.bloques = O.bloques(ar, opOficio());
+  OF.armada = ar; OF.bloques = O.bloques(ar, opOficio()); cargarMisCantos();
   const faltan = ar.partes.filter(p => p.falta && !p.piezas.length), avisos = ar.partes.filter(p => p.aviso);
   const dur = O.unir(OF.bloques).duracion;
   $('of-estado').innerHTML = '';
@@ -4391,6 +4557,331 @@ async function siguienteHoraDia() {
   await cantarOficio(0);
 }
 window.__cantusDia = { siguiente: () => { detener(); siguienteHoraDia(); }, estado: () => DIACOMP && (DIACOMP.k + '/' + DIACOMP.horas.length) };
+/* v2.40: «Mi canto»: el usuario graba cada parte con su voz (o sube un audio hecho en OpenUtau o Synthesizer V)
+   y el oficio la usa en lugar de la voz sintética siempre que esa parte (mismo texto) aparezca. Se guarda como audio
+   de referencia de la pieza, con origen «mi-canto:<clave del texto>». */
+const MIS = new Map();                          // clave -> { id, pieza_id }
+const misPorPieza = new Map();                  // pieza_id -> lista ya consultada
+function textoBloque(b) { return (b.tl && b.tl.eventos || []).filter(e => e.sil && e.primera !== false && !e.tono).map(e => e.sil.txt).join(' '); }
+function claveBloque(b) {
+  const t = (b.tipo || '') + '|' + textoBloque(b).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zñ]/g, '');
+  let h = 2166136261; for (let k = 0; k < t.length; k++) h = Math.imul(h ^ t.charCodeAt(k), 16777619) >>> 0;
+  return 'mi-canto:' + h.toString(36) + t.length.toString(36);
+}
+function piezaDeBloque(b) { const p = b.pieza || (b.parte && b.parte.piezas && b.parte.piezas[0]); return p && p.id && p.id < 9e8 ? p : null; }
+async function cargarMisCantos(forzar) {
+  if (!API.activo || !OF.bloques) return;
+  const ids = [...new Set(OF.bloques.map(piezaDeBloque).filter(Boolean).map(p => p.id))];
+  for (const id of ids) {
+    if (misPorPieza.has(id) && !forzar) continue;
+    try {
+      const l = await api('piezas/' + id + '/audios'); misPorPieza.set(id, l);
+      l.filter(a => (a.motor || '').startsWith('mi-canto:')).forEach(a => { if (!MIS.has(a.motor)) MIS.set(a.motor, { id: a.id, pieza_id: id }); });
+    } catch (e) {}
+  }
+  document.querySelectorAll('.mi-canto').forEach(bar => {
+    const bt = bar.querySelector('.b-grabar'), t = MIS.has(bar.dataset.clave);
+    bt.textContent = t ? '♪ Con mi grabación · cambiar' : '● Grabar mi canto'; bt.classList.toggle('tiene', t);
+  });
+}
+const bufGrab = new Map();
+async function bufferDe(id) {
+  if (bufGrab.has(id)) return bufGrab.get(id);
+  audio(); const r = await fetch('api/audios/' + id + '/archivo'); const buf = await ctx.decodeAudioData(await r.arrayBuffer()); bufGrab.set(id, buf); return buf;
+}
+function bordesSonido(buf) {                    // primer y último instante con voz (para alinear la letra con la grabación)
+  const d = buf.getChannelData(0), sr = buf.sampleRate, v = Math.floor(sr * 0.02); let mx = 0;
+  const rms = []; for (let i = 0; i + v < d.length; i += v) { let s = 0; for (let k = i; k < i + v; k++) s += d[k] * d[k]; const r = Math.sqrt(s / v); rms.push(r); if (r > mx) mx = r; }
+  const u = mx * 0.12; const a = rms.findIndex(r => r > u); let z = rms.length - 1; while (z > 0 && rms[z] <= u) z--;
+  return [Math.max(0, a) * 0.02, (z + 1) * 0.02];
+}
+async function tocarGrabacion(b, i, mio, alTerminar, opc = {}) {
+  let buf;
+  try { buf = await bufferDe(mio.id); }
+  catch (e) { toast('No pude leer tu grabación de esta parte; la canta la app.'); MIS.delete(claveBloque(b)); if (!opc.prefijo) tocarBloque(i); return; }
+  audio(); const src = ctx.createBufferSource(); src.buffer = buf; const g = ctx.createGain(); g.gain.value = 1; src.connect(g); g.connect(ctx.destination);
+  nodos.push(src, g); const t0 = ctx.currentTime + 0.1; src.start(t0);
+  const ev = b.tl.eventos, e0 = ev[0].t, e1 = ev[ev.length - 1].t + ev[ev.length - 1].d, [s0, s1] = bordesSonido(buf), k = (s1 - s0) / Math.max(0.1, e1 - e0);
+  const pref = opc.prefijo || ('ob' + i), raiz = opc.raiz || document; let ie = -1;
+  clearInterval(OF.intGrab);
+  OF.intGrab = setInterval(() => {
+    const el = (ctx.currentTime - t0 - s0) / k + e0;
+    while (ie + 1 < ev.length && ev[ie + 1].t <= el) {
+      ie++; const e = ev[ie]; if (e.tono) continue; const vr = e.versoReal ?? e.verso;
+      raiz.querySelectorAll('.sil.activa').forEach(x => x.classList.remove('activa'));
+      const sp = raiz.querySelector('#' + CSS.escape(`${pref}-${vr}-${e.parte}-${e.idx}`)); if (sp) sp.classList.add('activa');
+      raiz.querySelectorAll('.verso.actual').forEach(x => x.classList.remove('actual'));
+      const fv = raiz.querySelector('#' + CSS.escape(`${pref}-v${vr}`)); if (fv) fv.classList.add('actual');
+    }
+  }, 40);
+  src.onended = () => { clearInterval(OF.intGrab); raiz.querySelectorAll('.sil.activa,.verso.actual').forEach(x => x.classList.remove('activa', 'actual')); if (alTerminar) alTerminar(); };
+}
+function descargarBytes(bytes, nom, tipo) {
+  if (enVistaPrevia) return toast('La descarga funciona en la versión instalada en tu equipo.');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([bytes], { type: tipo })); a.download = nom;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+const nombreArchivo = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '_').replace(/^_|_$/g, '').slice(0, 80);
+function midiCanto(tl, titulo, programa) {
+  descargarBytes(M.exportarMidiCanto(tl, titulo, { programa }), nombreArchivo(titulo) + (programa === 'synthv' ? '_SynthV' : '_OpenUtau') + '.mid', 'audio/midi');
+  toast(programa === 'synthv' ? 'MIDI para Synthesizer V: impórtalo con Archivo › Importar; la letra ya va en cada nota.'
+    : 'MIDI para OpenUtau: arrástralo a OpenUtau y elige un cantante y el fonemizador en español.');
+}
+let GR = null;                                  // grabación en curso
+function cerrarGrabador() {
+  if (GR) { try { if (GR.rec && GR.rec.state === 'recording') GR.rec.stop(); } catch (e) {} if (GR.stream) GR.stream.getTracks().forEach(t => t.stop()); cancelAnimationFrame(GR.raf); }
+  GR = null; detener(); const d = $('grabador'); if (d) d.remove();
+}
+function abrirGrabador(bi) {
+  cerrarGrabador();
+  const b = OF.bloques[bi], pieza = piezaDeBloque(b), clave = claveBloque(b), mio = MIS.get(clave);
+  const d = document.createElement('div'); d.id = 'grabador'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
+  d.innerHTML = `<div class="caja"><div><b class="g-tit"></b><div class="nota-pie">Graba esta parte con tu voz. Usa audífonos: el piano te da las notas mientras cantas y así no queda en la grabación.</div></div>
+    <div class="txt-g" id="g-txt"></div>
+    <label class="check"><input type="checkbox" id="g-guia" checked> Piano guía en los audífonos (la melodía de esta parte)</label>
+    <div class="nivel" aria-hidden="true"><i id="g-nivel"></i></div>
+    <div class="estado" id="g-estado" aria-live="polite"></div>
+    <audio id="g-oir" controls hidden style="width:100%"></audio>
+    <div class="acciones"><button class="btn prim" id="g-rec" type="button">● Empezar a grabar</button><button class="btn" id="g-stop" type="button" disabled>■ Terminar</button>
+      <button class="btn prim" id="g-guardar" type="button" disabled>Guardar como mi canto</button></div>
+    <div class="acciones"><button class="btn" id="g-subir" type="button">Subir un audio (OpenUtau, Synthesizer V o una grabación)</button>
+      <button class="btn" id="g-ou" type="button">MIDI para OpenUtau</button><button class="btn" id="g-sv" type="button">MIDI para Synthesizer V</button></div>
+    <div class="acciones"><button class="btn" id="g-mio" type="button"${mio ? '' : ' hidden'}>▶ Oír mi grabación guardada</button><button class="btn peligro" id="g-borrar" type="button"${mio ? '' : ' hidden'}>Borrar mi grabación</button><button class="btn" id="g-cerrar" type="button">Cerrar</button></div>
+    <input type="file" id="g-archivo" accept=".wav,.mp3,.ogg,.m4a,.webm,.flac,audio/*" hidden></div>`;
+  document.body.appendChild(d);
+  const parteArm = OF.armada.partes.find(p => p.id === b.parte.id);
+  d.querySelector('.g-tit').textContent = (b.parte.nombre || (parteArm && parteArm.nombre) || 'Parte') + (b.encabezado ? ' · ' + b.encabezado : '');
+  const tx = $('g-txt'), orig = $('ob' + bi);
+  if (orig) { const c = orig.cloneNode(true); c.querySelectorAll('.mi-canto').forEach(x => x.remove()); c.querySelectorAll('[id]').forEach(x => { x.id = x.id.replace(/^ob/, 'gob'); }); tx.appendChild(c); }
+  const est = $('g-estado');
+  est.textContent = mio ? 'Ya tienes una grabación de esta parte. Si grabas otra, reemplaza a la anterior.' : 'Pulsa «Empezar a grabar». Suenan 2 tiempos con la primera nota y después empieza la guía.';
+  let blob = null, ext = '.webm';
+  const tituloMidi = OF.armada.titulo + ' ' + (b.parte.nombre || (parteArm && parteArm.nombre) || '');
+  $('g-cerrar').onclick = cerrarGrabador;
+  $('g-ou').onclick = () => midiCanto(b.tl, tituloMidi, 'openutau');
+  $('g-sv').onclick = () => midiCanto(b.tl, tituloMidi, 'synthv');
+  $('g-mio').onclick = () => { detener(); tocarGrabacion(b, bi, mio, null, { prefijo: 'gob' + bi, raiz: tx }); };
+  $('g-borrar').onclick = async () => {
+    const bt = $('g-borrar'); if (bt.dataset.c !== '1') { bt.dataset.c = '1'; bt.textContent = '¿Seguro? Pulsa otra vez'; return; }
+    try { await api('audios/' + mio.id, { method: 'DELETE' }); MIS.delete(clave); misPorPieza.delete(mio.pieza_id); bufGrab.delete(mio.id); toast('Grabación borrada: esta parte la canta la app.'); cerrarGrabador(); renderOficio(); }
+    catch (e) { est.textContent = 'No se pudo borrar: ' + e.message; }
+  };
+  $('g-subir').onclick = () => $('g-archivo').click();
+  $('g-archivo').onchange = () => {
+    const f = $('g-archivo').files[0]; if (!f) return; blob = f; ext = (f.name.match(/\.[^.]+$/) || ['.wav'])[0].toLowerCase();
+    const o = $('g-oir'); o.src = URL.createObjectURL(f); o.hidden = false; $('g-guardar').disabled = false;
+    est.textContent = 'Audio cargado: ' + f.name + '. Escúchalo y pulsa «Guardar como mi canto».';
+  };
+  $('g-rec').onclick = async () => {
+    if (!navigator.mediaDevices || !window.MediaRecorder) { est.textContent = 'Este navegador no permite grabar. Usa Edge o Chrome actualizados, o sube un audio.'; return; }
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }); }
+    catch (e) { est.textContent = 'No tengo permiso para usar el micrófono. Permítelo en el candado de la barra de direcciones y vuelve a intentar.'; return; }
+    audio(); GR = { stream };
+    const tipo = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+    ext = /mp4/.test(tipo) ? '.m4a' : '.webm';
+    const rec = new MediaRecorder(stream, tipo ? { mimeType: tipo, audioBitsPerSecond: 160000 } : {}); GR.rec = rec; const trozos = [];
+    rec.ondataavailable = e => { if (e.data.size) trozos.push(e.data); };
+    rec.onstop = () => {
+      blob = new Blob(trozos, { type: rec.mimeType || 'audio/webm' }); const o = $('g-oir'); if (!o) return;
+      o.src = URL.createObjectURL(blob); o.hidden = false; $('g-guardar').disabled = false; $('g-rec').disabled = false; $('g-stop').disabled = true;
+      $('g-rec').textContent = '● Grabar otra vez';
+      est.textContent = 'Listo. Escucha tu toma; si te gusta, pulsa «Guardar como mi canto». Si no, graba otra vez.';
+      stream.getTracks().forEach(t => t.stop()); if (GR) cancelAnimationFrame(GR.raf);
+    };
+    const an = ctx.createAnalyser(); an.fftSize = 1024; ctx.createMediaStreamSource(stream).connect(an); const mb = new Float32Array(an.fftSize);
+    const medir = () => { if (!GR || !$('g-nivel')) return; an.getFloatTimeDomainData(mb); let m = 0; for (const x of mb) m = Math.max(m, Math.abs(x)); $('g-nivel').style.width = Math.min(100, m * 140) + '%'; $('g-nivel').style.background = m > 0.95 ? '#c0392b' : '#2f8a4a'; GR.raf = requestAnimationFrame(medir); };
+    medir();
+    $('g-rec').disabled = true; $('g-stop').disabled = false; $('g-guardar').disabled = true; $('g-oir').hidden = true;
+    rec.start(500);
+    const n0 = b.tl.eventos[0].midi, beat = 0.75, ahora = ctx.currentTime;
+    for (let k = 0; k < 2; k++) {
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = 440 * Math.pow(2, (n0 - 69) / 12);
+      g.gain.setValueAtTime(0.0001, ahora + k * beat); g.gain.exponentialRampToValueAtTime(0.25, ahora + k * beat + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, ahora + k * beat + 0.35);
+      o.connect(g); g.connect(ctx.destination); o.start(ahora + k * beat); o.stop(ahora + k * beat + 0.4);
+    }
+    est.textContent = 'Cuenta: 1, 2… canta cuando se ilumine la primera sílaba. Termina sola al acabar la guía, o pulsa «Terminar».';
+    setTimeout(() => {
+      if (!GR || GR.rec !== rec || rec.state !== 'recording') return;
+      const g0 = guiaForzada, vol = A.vol; guiaForzada = true; if (!$('g-guia').checked) A.vol = 0;
+      reproducir(b.tl, '', { prefijo: 'gob' + bi, sinRegistro: true, silencioso: true, alTerminar: () => { setTimeout(() => { if (GR && GR.rec === rec && rec.state === 'recording') rec.stop(); }, 1500); } });
+      guiaForzada = g0; A.vol = vol;
+    }, 2 * beat * 1000);
+  };
+  $('g-stop').onclick = () => { if (GR && GR.rec && GR.rec.state === 'recording') { detener(); GR.rec.stop(); } };
+  $('g-guardar').onclick = async () => {
+    if (!blob) return; est.textContent = 'Guardando…';
+    try {
+      if (mio) { try { await api('audios/' + mio.id, { method: 'DELETE' }); } catch (e) {} bufGrab.delete(mio.id); }
+      const r = await fetch('api/piezas/' + pieza.id + '/audios', { method: 'POST', body: blob, headers: { 'Content-Type': blob.type || 'application/octet-stream',
+        'X-Nombre': encodeURIComponent('mi_canto' + ext), 'X-Titulo': encodeURIComponent('Mi canto — ' + (b.parte.nombre || (parteArm && parteArm.nombre) || pieza.titulo || '')), 'X-Origen': encodeURIComponent(clave) } });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText);
+      MIS.set(clave, { id: j.id, pieza_id: pieza.id }); misPorPieza.delete(pieza.id);
+      toast('Guardado. Desde ahora esta parte suena con tu voz cada vez que aparezca.'); cerrarGrabador(); renderOficio();
+    } catch (e) { est.textContent = 'No se pudo guardar: ' + e.message; }
+  };
+}
+$('of-aprender').onclick = () => { if (!OF.bloques || !OF.bloques.length) return toast('Elige primero una hora.'); abrirAprender(0); };
+$('of-midi-ou').onclick = () => { const tl = O.unir(OF.bloques); if (!tl.eventos.length) return toast('Esta hora aún no tiene partes cantables.'); midiCanto(tl, OF.armada.titulo + ' ' + OF.fecha, 'openutau'); };
+$('of-midi-sv').onclick = () => { const tl = O.unir(OF.bloques); if (!tl.eventos.length) return toast('Esta hora aún no tiene partes cantables.'); midiCanto(tl, OF.armada.titulo + ' ' + OF.fecha, 'synthv'); };
+
+/* v2.41: «Aprender esta parte»: escucha el modelo, repítelo con el piano de guía y la app te dice, sílaba por sílaba,
+   si la nota fue la correcta. Incluye «Cómo se dice»: entonación, nota de recitación, acentos, cadencias, dónde
+   respirar y cuánto dura cada pausa, según la métrica de la grabación modelo. */
+const N_BEM = ['Do', 'Re♭', 'Re', 'Mi♭', 'Mi', 'Fa', 'Sol♭', 'Sol', 'La♭', 'La', 'Si♭', 'Si'], N_SOS = ['Do', 'Do♯', 'Re', 'Re♯', 'Mi', 'Fa', 'Fa♯', 'Sol', 'Sol♯', 'La', 'La♯', 'Si'];
+function nombreN(m, bem) { return (bem ? N_BEM : N_SOS)[((Math.round(m) % 12) + 12) % 12]; }
+function comoSeDice(b) {
+  const ev = (b.tl && b.tl.eventos || []).filter(e => e.sil && !e.tono); if (!ev.length) return [];
+  const bem = M.prefiereBemoles(ev.map(e => e.midi));
+  const cnt = {}; ev.forEach(e => { cnt[e.midi] = (cnt[e.midi] || 0) + e.d; }); const tenor = +Object.entries(cnt).sort((x, y) => y[1] - x[1])[0][0];
+  const MT = metricaModelo(), seg = (x) => x.toFixed(1).replace('.', ',') + ' s';
+  const S = silabaUso(), kM = MT ? S / MT.silaba : 1;
+  const out = [];
+  out.push(`Recita sobre <b>${nombreN(tenor, bem)}</b>: todas las sílabas iguales, al paso del habla (unas ${seg(S * 10)} cada 10 sílabas), sin acelerar ni arrastrar.`);
+  out.push('La sílaba acentuada (subrayada) se dice un poco más clara y, si lleva nota distinta, ahí cambia la melodía; no se alarga.');
+  if (b.tipo === 'salmo') {
+    out.push(MT ? `En el asterisco <b class="rub">*</b> respira: pausa de ${seg(MT.media * kM)}. Al final del verso, ${seg(MT.verso * kM)} de silencio y entra el otro coro.` : 'En el asterisco * respira; al final del verso, una pausa y entra el otro coro.');
+    out.push('En la cruz <b class="rub">†</b> (flexa) baja la nota en la última sílaba y sigue casi sin parar.');
+    const ent = ev.filter(e => e.primera && e.sil.rol === 'entonacion' && (e.versoReal ?? e.verso) === (ev[0].versoReal ?? ev[0].verso));
+    if (ent.length) out.push(`Solo el primer verso empieza con la entonación (${ent.map(e => nombreN(e.midi, bem)).join('–')} → ${nombreN(tenor, bem)}); los demás versos empiezan ya en ${nombreN(tenor, bem)}.`);
+    if (/Gloria al Padre/.test(textoBloque(b).replace(/\s+/g, ' ')) || ev.some(e => /^Glo/.test(e.sil.txt))) out.push('En «Gloria al Padre, y al Hijo, y al Espíritu Santo» se hace inclinación profunda; en «Como era en el principio» se vuelve a erguir.');
+  }
+  // por verso: sílabas que salen de la nota de recitación
+  const porVerso = new Map();
+  ev.forEach(e => { if (!e.primera) return; const k = e.versoReal ?? e.verso; if (!porVerso.has(k)) porVerso.set(k, []); porVerso.get(k).push(e); });
+  let n = 0;
+  for (const [k, es] of porVerso) {
+    if (n++ >= 3) break;
+    const notasDe = (e) => ev.filter(x => x.sil === e.sil).map(x => nombreN(x.midi, bem)).join('–');
+    // palabras del verso, para mostrar cada sílaba dentro de su palabra (mi-se-ri-<b>cor</b>-dia)
+    const pal = []; let cur = []; es.forEach(e => { cur.push(e); if (e.sil.finPalabra) { pal.push(cur); cur = []; } }); if (cur.length) pal.push(cur);
+    const limpio = (t) => t.replace(/[.,;:!?¡¿«»"()*†]/g, '');
+    const items = [];
+    pal.forEach(w => { const fu = w.filter(e => ev.some(x => x.sil === e.sil && x.midi !== tenor)); if (!fu.length) return;
+      const palabra = w.map(e => fu.includes(e) ? '<b>' + limpio(e.sil.txt) + '</b>' : limpio(e.sil.txt)).join('-');
+      items.push(`${palabra} (${fu.map(notasDe).join(' · ')})`); });
+    if (!items.length) continue;
+    const txt = items.join(', ');
+    out.push(`Verso ${k + 1}: ${txt}.`);
+  }
+  if (porVerso.size > 3) out.push('Los demás versos siguen el mismo modelo.');
+  return out;
+}
+function detectarF0(buf, sr) {                 // autocorrelación normalizada, 70–420 Hz
+  let rms = 0; for (const x of buf) rms += x * x; rms = Math.sqrt(rms / buf.length); if (rms < 0.005) return 0;
+  const min = Math.floor(sr / 420), max = Math.floor(sr / 70), n = buf.length - max;
+  let mejor = 0, lag = 0;
+  for (let l = min; l <= max; l++) { let s = 0, e1 = 0, e2 = 0; for (let i = 0; i < n; i += 2) { s += buf[i] * buf[i + l]; e1 += buf[i] * buf[i]; e2 += buf[i + l] * buf[i + l]; } const c = s / Math.sqrt(e1 * e2 + 1e-12); if (c > mejor) { mejor = c; lag = l; } }
+  return mejor > 0.6 ? sr / lag : 0;
+}
+let AP = null;
+function cerrarAprender() { if (AP) { AP.fin = true; if (AP.stream) AP.stream.getTracks().forEach(t => t.stop()); cancelAnimationFrame(AP.raf); } AP = null; detener(); const d = $('grabador'); if (d) d.remove(); }
+function abrirAprender(bi, enCadena) {
+  cerrarGrabador(); cerrarAprender();
+  const b = OF.bloques[bi]; if (!b || !b.tl || !b.tl.eventos.length) { if (enCadena) return abrirAprender(bi + 1, true); return; }
+  const parteArm = OF.armada.partes.find(p => p.id === b.parte.id);
+  const d = document.createElement('div'); d.id = 'grabador'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
+  d.innerHTML = `<div class="caja"><div><b class="g-tit"></b><div class="nota-pie">1) Escucha cómo se canta. 2) Repítelo tú con el piano de guía (con audífonos). 3) Mira en qué sílabas acertaste la nota.</div></div>
+    <details open><summary class="nota-pie" style="cursor:pointer"><b>Cómo se dice</b></summary><ul id="a-como" style="margin:.4em 0 0 1.1em;padding:0;display:grid;gap:4px"></ul></details>
+    <div class="txt-g" id="g-txt"></div>
+    <div class="estado" id="g-estado" aria-live="polite"></div>
+    <div class="acciones"><button class="btn prim" id="a-oir" type="button">1 · ▶ Escuchar</button><button class="btn prim" id="a-yo" type="button">2 · ● Ahora yo</button><button class="btn" id="a-stop" type="button">■ Detener</button></div>
+    <div class="acciones"><button class="btn" id="a-ant" type="button">← Parte anterior</button><button class="btn" id="a-sig" type="button">Siguiente parte →</button><button class="btn" id="g-cerrar" type="button">Cerrar</button></div>
+    <p class="nota-pie" style="margin:0"><span style="color:#2f8a4a">■</span> nota correcta · <span style="color:#c98a00">■</span> casi (menos de medio tono) · <span style="color:#c0392b">■</span> otra nota · <span style="opacity:.5">■</span> no se oyó</p></div>`;
+  document.body.appendChild(d);
+  d.querySelector('.g-tit').textContent = 'Aprender: ' + ((b.parte.nombre || (parteArm && parteArm.nombre)) || 'parte') + (b.encabezado ? ' · ' + b.encabezado : '') + `  (${bi + 1} de ${OF.bloques.length})`;
+  const ul = $('a-como'); comoSeDice(b).forEach(h => { const li = document.createElement('li'); li.innerHTML = h; ul.appendChild(li); });
+  const tx = $('g-txt'), orig = $('ob' + bi);
+  if (orig) { const c = orig.cloneNode(true); c.querySelectorAll('.mi-canto').forEach(x => x.remove()); c.querySelectorAll('[id]').forEach(x => { x.id = x.id.replace(/^ob/, 'gob'); }); tx.appendChild(c); }
+  const est = $('g-estado'); est.textContent = 'Empieza por «Escuchar».';
+  $('g-cerrar').onclick = cerrarAprender;
+  $('a-stop').onclick = () => { if (AP && AP.terminar && !AP.fin) { detener(); AP.terminar(); return; } if (AP) { AP.fin = true; if (AP.stream) AP.stream.getTracks().forEach(t => t.stop()); } detener(); };
+  $('a-ant').onclick = () => abrirAprender(Math.max(0, bi - 1));
+  $('a-sig').onclick = () => { if (bi + 1 < OF.bloques.length) abrirAprender(bi + 1); else { cerrarAprender(); toast('Terminaste la hora.'); } };
+  $('a-oir').onclick = () => {
+    detener(); const mio = MIS.get(claveBloque(b));
+    if (mio) return tocarGrabacion(b, bi, mio, () => { est.textContent = 'Ahora tú: pulsa «Ahora yo».'; }, { prefijo: 'gob' + bi, raiz: tx });
+    if (esLeida(b)) return leerBloque(b, bi, () => { est.textContent = 'Esta parte se lee: repítela en voz alta con la misma calma.'; });
+    reproducir(b.tl, '', { prefijo: 'gob' + bi, sinRegistro: true, silencioso: true, alTerminar: () => { est.textContent = 'Ahora tú: pulsa «Ahora yo».'; } });
+  };
+  $('a-yo').onclick = async () => {
+    if (b.tipo === 'silencio') return;
+    if (!navigator.mediaDevices) { est.textContent = 'Este navegador no deja usar el micrófono.'; return; }
+    let stream; try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true } }); }
+    catch (e) { est.textContent = 'No tengo permiso para el micrófono. Permítelo en el candado de la barra de direcciones.'; return; }
+    detener(); audio(); AP = { stream, fin: false };
+    tx.querySelectorAll('.sil').forEach(x => { x.style.boxShadow = ''; });
+    const an = ctx.createAnalyser(); an.fftSize = 2048; ctx.createMediaStreamSource(stream).connect(an); const buf = new Float32Array(an.fftSize);
+    const ev = b.tl.eventos.filter(e => e.sil && !e.tono), cuadros = [];   // [t, f0] de lo que se oye
+    const g0 = guiaForzada; guiaForzada = true;
+    const t0 = ctx.currentTime + 0.12;
+    reproducir(b.tl, '', { prefijo: 'gob' + bi, sinRegistro: true, silencioso: true, alTerminar: () => { setTimeout(() => terminar(), 600); } });
+    guiaForzada = g0;
+    est.textContent = 'Canta con el piano…';
+    let ie = 0;
+    const paso = () => {
+      if (!AP || AP.fin) return;
+      const t = ctx.currentTime - t0 + (b.tl.eventos[0] ? 0 : 0);
+      while (ie < ev.length - 1 && ev[ie].t + ev[ie].d < t) ie++;
+      an.getFloatTimeDomainData(buf); cuadros.push([t, detectarF0(buf, ctx.sampleRate)]);
+      AP.raf = requestAnimationFrame(paso);
+    };
+    paso();
+    const terminar = AP.terminar = () => {
+      if (!AP || AP.fin) return; AP.fin = true; stream.getTracks().forEach(t => t.stop());
+      let ok = 0, casi = 0, mal = 0, mudo = 0;
+      const porSil = new Map();
+      const tFin = cuadros.length ? cuadros[cuadros.length - 1][0] : 0;
+      ev.forEach((e) => {
+        if (e.t > tFin) return;                                        // lo que no se alcanzó a cantar no cuenta
+        const clave = (e.versoReal ?? e.verso) + '-' + e.parte + '-' + e.idx;
+        // margen de 0,3 s antes y después: se perdona entrar un poco antes o después
+        const vent = cuadros.filter(([t]) => t >= e.t - 0.3 && t <= e.t + e.d + 0.3), fs = vent.map(c => c[1]).filter(f => f > 0);
+        let r;
+        if (fs.length < Math.max(1, vent.length * 0.25)) r = 'mudo';
+        else {
+          const difs = fs.map(f => Math.abs(((69 + 12 * Math.log2(f / 440) - e.midi) % 12 + 18) % 12 - 6)).sort((x, y) => x - y);   // la octava no cuenta
+          const dif = difs[Math.floor(difs.length * 0.3)];                // la parte mejor afinada de la sílaba
+          r = dif <= 0.5 ? 'ok' : dif <= 1.0 ? 'casi' : 'mal';
+        }
+        const ant = porSil.get(clave); const peor = { ok: 0, casi: 1, mal: 2, mudo: 3 };
+        if (!ant || peor[r] > peor[ant]) porSil.set(clave, r);
+      });
+      const color = { ok: '#2f8a4a', casi: '#c98a00', mal: '#c0392b', mudo: 'rgba(128,128,128,.5)' };
+      for (const [clave, r] of porSil) {
+        ({ ok: () => ok++, casi: () => casi++, mal: () => mal++, mudo: () => mudo++ })[r]();
+        const sp = tx.querySelector('#' + CSS.escape(`gob${bi}-${clave}`)); if (sp) sp.style.boxShadow = `inset 0 -4px 0 ${color[r]}`;
+      }
+      const tot = ok + casi + mal + mudo || 1, pct = Math.round((ok + casi * 0.5) / tot * 100);
+      est.textContent = `Resultado: ${pct} % · ${ok} sílabas en su nota, ${casi} casi, ${mal} en otra nota, ${mudo} sin oírse. ` +
+        (pct >= 85 ? '¡Muy bien! Pasa a la siguiente parte.' : pct >= 60 ? 'Bien. Repite fijándote en las sílabas en rojo y amarillo.' : 'Escucha otra vez y repite despacio, sílaba por sílaba.');
+      try { api('practicas', { method: 'POST', body: JSON.stringify({ pieza_id: (piezaDeBloque(b) || {}).id || null, tipo: 'aprender-oficio', duracion: Math.round(b.tl.duracion || 0) }) }); } catch (e) {}
+    };
+  };
+  if (enCadena) $('a-oir').click();
+}
+
+/* v2.39: partes leídas (lecturas, oración, preces, Padre nuestro, monición y absolución del examen) con la voz clara del sistema;
+   los cantos siguen cantados. Si el equipo no tiene voz española, se recitan como antes. */
+const LEIDAS = new Set(['lectura', 'oracion', 'preces', 'padrenuestro']);
+function esLeida(b) {
+  if (A.voz_clara === 'no' || !window.speechSynthesis || !vozES || b.tipo !== 'recitado' || !b.parte) return false;
+  return LEIDAS.has(b.parte.canto) || b.parte.perfilId === 'examen-inv' || b.parte.perfilId === 'examen-abs';
+}
+function leerBloque(b, i, alTerminar) {
+  const pref = 'ob' + i; let pend = b.filas.length; if (!pend) return alTerminar();
+  const e = perfilDe(b.parte), velocidad = e && e.silaba ? Math.min(1.25, Math.max(0.8, 0.27 / e.silaba)) : 0.95;   // monición y absolución al paso de la grabación
+  b.filas.forEach((f, fi) => {
+    const sils = f.frases.flatMap(x => x.sils); let txt = '', mapa = [];
+    sils.forEach((s, k) => { mapa.push([txt.length, k]); txt += s.txt + (s.finPalabra ? ' ' : ''); });
+    const u = new SpeechSynthesisUtterance(txt.replace(/\s+/g, ' ').trim()); u.lang = vozES.lang; u.voice = vozES; u.rate = velocidad; u.pitch = 0.9;
+    u.onstart = () => { document.querySelectorAll('.verso.actual').forEach(x => x.classList.remove('actual')); const fv = $(`${pref}-v${fi}`); if (fv) { fv.classList.add('actual'); fv.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } };
+    u.onboundary = (ev) => { if (ev.name && ev.name !== 'word') return; let k = 0; for (const [c, j] of mapa) { if (c <= ev.charIndex) k = j; else break; }
+      document.querySelectorAll('.sil.activa').forEach(x => x.classList.remove('activa')); const sp = $(`${pref}-${fi}-h2-${k}`); if (sp) sp.classList.add('activa'); };
+    u.onend = u.onerror = () => { if (--pend === 0) { document.querySelectorAll('.sil.activa, .verso.actual').forEach(x => x.classList.remove('activa', 'actual')); alTerminar(); } };
+    speechSynthesis.speak(u);
+  });
+}
 function tocarBloque(i) {
   while (i < OF.bloques.length && !(OF.bloques[i].tl && (OF.bloques[i].tl.eventos.length || OF.bloques[i].tipo === 'silencio'))) i++;
   if (i >= OF.bloques.length) { OF.cadena = false; marcarBloque(-1); toast('Fin de ' + OF.armada.titulo + '.'); registrarPractica('Oficio: ' + OF.armada.titulo, O.unir(OF.bloques).duracion);
@@ -4399,8 +4890,11 @@ function tocarBloque(i) {
   const b = OF.bloques[i]; OF.cursor = i;
   if (b.tipo === 'silencio') {
     detener(); OF.cadena = true; marcarBloque(i); toast('Examen de conciencia: unos momentos de silencio.');
-    OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(i + 1); }, 9000); return;
+    OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(i + 1); }, 1000 * ((b.tl && b.tl.duracion) || 9)); return;   // la grabación de Completas: 3 s
   }
+  const mio = MIS.get(claveBloque(b));
+  if (mio) { detener(); OF.cadena = true; marcarBloque(i); tocarGrabacion(b, i, mio, () => { if (OF.cadena) OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(i + 1); }, b.tipo === 'antifona' ? 500 : 900); }); return; }
+  if (esLeida(b)) { detener(); OF.cadena = true; marcarBloque(i); leerBloque(b, i, () => { if (OF.cadena) OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(i + 1); }, 900); }); return; }
   reproducir(b.tl, b.parte.nombre || '', { prefijo: 'ob' + i, sinRegistro: true, silencioso: !b.parte.nombre, alTerminar: () => { if (OF.cadena) OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(i + 1); }, b.tipo === 'antifona' ? (b.cierre && b.parte.canto === 'salmodia' ? 500 + 1000 * (+A.oficio_silencio || 0) : 500) : 1100); } });
   OF.cadena = true; marcarBloque(i);
 }
@@ -4414,8 +4908,8 @@ $('of-fecha').onchange = () => { if ($('of-fecha').value) { DIACOMP = null; dete
 const moverDia = (d) => { const f = new Date(OF.fecha + 'T12:00:00'); f.setDate(f.getDate() + d); OF.fecha = f.toISOString().slice(0, 10); detener(); renderOficio(); };
 $('of-ant').onclick = () => moverDia(-1); $('of-sig').onclick = () => moverDia(1);
 $('of-hoy').onclick = () => { detener(); OF.fecha = hoyISO(); OF.hora = horaPorReloj(); renderOficio(); };
-['of-inv', 'of-hi', 'of-mar', 'of-lect', 'of-santos', 'of-sil', 'of-orden', 'of-tonos'].forEach(id => $(id).addEventListener('change', () => {
-  A.oficio_orden = $('of-orden').value; A.perfil_tonal = $('of-tonos').value;
+['of-inv', 'of-hi', 'of-mar', 'of-lect', 'of-santos', 'of-sil', 'of-orden', 'of-tonos', 'of-vozclara'].forEach(id => $(id).addEventListener('change', () => {
+  A.oficio_orden = $('of-orden').value; A.perfil_tonal = $('of-tonos').value; A.voz_clara = $('of-vozclara').value;
   A.oficio_silencio = $('of-sil').value; A.oficio_inv = $('of-inv').value; A.oficio_hi = $('of-hi').value; A.oficio_mariana = $('of-mar').value; A.oficio_lect = $('of-lect').value; A.oficio_santos = $('of-santos').value; guardarAjustes(); renderOficio();
 }));
 $('of-midi').onclick = () => {
@@ -4434,6 +4928,7 @@ window.__cantusOficioWav = async (n, ajustes) => {                        // par
   const b = new Uint8Array(await blob.arrayBuffer()); let s = ''; for (let i = 0; i < b.length; i += 32768) s += String.fromCharCode.apply(null, b.subarray(i, i + 32768));
   return btoa(s);
 };
+window.__cantusCantar = (i) => cantarOficio(i); window.__cantusDetener = () => detener();   // para pruebas y para grabar ejemplos
 window.__cantusOficio = (fecha, hora) => { OF.fecha = fecha; OF.hora = hora; renderOficio(); return { titulo: OF.armada.titulo, partes: OF.armada.partes.map(p => ({ nombre: p.nombre, piezas: p.piezas.map(x => x.titulo), falta: p.falta, aviso: p.aviso })), bloques: OF.bloques.length, dur: O.unir(OF.bloques).duracion, lista: OF.bloques.map((b, i) => i + ':' + (b.tipo || '') + ':' + (b.parte && b.parte.nombre || '') + ':' + (b.tl ? Math.round(b.tl.duracion) : 0) + (b.melodica ? '♫' : '')), antifonas: OF.bloques.filter(b => b.tipo === 'antifona').map(b => (b.melodica ? '♫ ' : '  ') + (b.filas[0].frases ? b.filas[0].frases[0].sils.map(s => s.txt).join(' ') : b.filas[0].versos ? '(tono del modo)' : '')) }; };
 
 /* ================= Voz piloto ================= */
