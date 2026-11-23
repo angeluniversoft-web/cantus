@@ -630,7 +630,7 @@ const Motor = (() => {
 
   /* ---------- 1. Notas ---------- */
   const NOMBRES = ['Do', 'Do♯', 'Re', 'Mi♭', 'Mi', 'Fa', 'Fa♯', 'Sol', 'Sol♯', 'La', 'Si♭', 'Si'];
-  const PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11, Eb: 3, Bb: 10, Ab: 8, 'F#': 6, 'C#': 1 };
+  const PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11, Eb: 3, Bb: 10, Ab: 8, 'F#': 6, 'C#': 1, 'G#': 8, 'D#': 3, 'A#': 10, Db: 1, Gb: 6 };
   function midi(n) {               // "Bb4" -> 70, "C5" -> 72 (un número se devuelve tal cual)
     if (typeof n === 'number') return n;
     const m = /^([A-G])(b|#)?(-?\d)$/.exec(n);
@@ -1330,10 +1330,11 @@ const Motor = (() => {
   // voicing: raíz por debajo de la recitación (entre tenor-19 y tenor-8)
   function notasNivel(pcs, nivel, finalM, tenorT) {
     const techo = tenorT - 8;
-    const bajo = (pc) => { let m = techo; while (((m % 12) + 12) % 12 !== pc) m--; return m; };
+    // v2.53.2: una nota desconocida (p. ej. «G#» si no estuviera en PC) dejaba este bucle sin fin y congelaba la página
+    const bajo = (pc) => { if (!(pc >= 0 && pc < 12)) pc = ((finalM % 12) + 12) % 12; let m = techo; while (((m % 12) + 12) % 12 !== pc) m--; return m; };
     if (nivel === 1) return [bajo(((finalM % 12) + 12) % 12)];
     const r = bajo(pcs[0]);
-    const arriba = (pc, desde) => { let m = desde + 1; while (((m % 12) + 12) % 12 !== pc) m++; return m; };
+    const arriba = (pc, desde) => { if (!(pc >= 0 && pc < 12)) return desde + 4; let m = desde + 1; while (((m % 12) + 12) % 12 !== pc) m++; return m; };
     const tercera = arriba(pcs[1], r), quinta = arriba(pcs[2], tercera);
     return nivel === 2 ? [r, quinta] : [r, tercera, quinta];
   }
@@ -3922,7 +3923,7 @@ const EJEMPLOS = [
 ];
 const API = { activo: false };
 const CELULAR = true;            // la misma página sirve al PC (servidor.py) y al celular (sw.js con la base en el teléfono)
-const VERSION_APP = '2.53.1';
+const VERSION_APP = '2.53.2';
 let piezas = [...EJEMPLOS];
 let actual = piezas[0];
 
