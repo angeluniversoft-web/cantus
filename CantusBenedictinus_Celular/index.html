@@ -398,6 +398,11 @@ fieldset.oficio legend{font:700 .8rem var(--f-ui);color:var(--rubrica);padding:0
         <button class="btn" id="of-midi" type="button">MIDI de la hora (con letra)</button>
         <button class="btn" id="of-midi-ou" type="button">MIDI para OpenUtau</button>
         <button class="btn" id="of-midi-sv" type="button">MIDI para Synthesizer V</button>
+        <button class="btn" id="of-mivoz" type="button">Exportar para cantar con mi voz (salmodia-tutor)</button>
+        <label class="campo" for="of-motor">Motor de voz<select id="of-motor"><option value="ace">ACE Studio</option><option value="synthv">Synthesizer V</option><option value="openutau">OpenUtau</option></select></label>
+        <button class="btn prim" id="of-motor-exp" type="button">1 · Exportar la hora al motor de voz (.zip)</button>
+        <button class="btn prim" id="of-motor-imp" type="button">2 · Importar los cantos del motor de voz</button>
+        <input type="file" id="of-motor-arch" accept=".wav,.mp3,.flac,.ogg,.m4a,audio/*" multiple hidden>
       </div>
       <details>
         <summary class="nota-pie" style="cursor:pointer">Ajustes del oficio</summary>
@@ -682,6 +687,13 @@ const Motor = (() => {
     pagina: 0, acordes: [['Eb', 'G', 'Bb'], ['Bb', 'D', 'F'], ['Eb', 'G', 'Bb']], nAc: ['Mi♭', 'Si♭', 'Mi♭'],
     fuente: 'Grabación del Oficio de lectura del 8-III-2026 (análisis de alturas; aproximado)', verificado: { ent: 0, med: 0, ter: 0, flexa: 0 } };
   ROMANOS[9] = 'Mi♭ (grabación)';
+  /* Tono 10 (v2.44): salmodia de Completas de la grabación modelo del usuario (CANTO DE LA LITURGIA DE LAS HORAS — COMPLETAS, 14 min).
+     Recitación en Si, final en Mi; la nota más usada después de Mi y Si es Do♯ (Mi mayor). Solo alturas; aproximado. */
+  TONOS[10] = { nombre: 'Tono de Completas (Mi)', caracter: 'Salmodia de Completas — grabación modelo (20-XI-2026)', final: 'E4', tenor: 'B4',
+    ent: ['E4', 'G#4'], flexa: 'A4', med: { prep: [], acc: 'C#5', post: ['B4'] }, ter: { prep: ['C#5'], acc: 'A4', post: ['E4'] }, terNombre: 'Mi',
+    pagina: 0, acordes: [['E', 'G#', 'B'], ['A', 'C#', 'E'], ['E', 'G#', 'B']], nAc: ['Mi', 'La', 'Mi'],
+    fuente: 'Grabación modelo de Completas (análisis de alturas, 3:53-7:42; aproximado)', verificado: { ent: 0, med: 0, ter: 0, flexa: 0 } };
+  ROMANOS[10] = 'Mi (Completas)';
   /* Perfiles tonales tomados de grabaciones: para cada parte, el modo y la nota de recitación (clase de altura).
      La octava la pone la tesitura del usuario. */
   const PERFILES = {
@@ -710,7 +722,341 @@ const Motor = (() => {
       'examen-sil': { silencio: 3, nota: 'silencio breve, como en la grabación' },
       'examen-conf': { tenor: 'D', cerca: -5, estilo: 'co-confiteor', silaba: 0.205, nota: '«Yo confieso» en recto tono sobre Re; en la coma sube a Fa; cada punto cae a Sol' },
       'examen-abs': { tenor: 'C#', cerca: -7, estilo: 'hablado', silaba: 0.25, nota: 'absolución hablada; «Amén» de todos' },
-      himno: { modo: 6, tenor: 'F#', final: 'D', silaba: 0.24, nota: 'Re mayor: recitación en Fa♯, final en Re (Modo VI en Re); si el himno tiene melodía propia, se canta con ella terminando en Re' } } },
+      himno: { modo: 6, tenor: 'F#', final: 'D', silaba: 0.24, nota: 'Re mayor: recitación en Fa♯, final en Re (Modo VI en Re); si el himno tiene melodía propia, se canta con ella terminando en Re' },
+      /* v2.44: el resto de la hora, de la grabación modelo completa (14 min, 20-XI-2026). Solo tonos y pausas; la voz no se copia. */
+      salmodia: { modo: 10, tenor: 'B', fijo: true, nota: 'todos los salmos en el mismo tono, como en la grabación: recitación en Si, final en Mi' },
+      lectura: { tenor: 'F', nota: 'lectura breve casi hablada, en torno a Fa', silencioDespues: 5 },
+      resp: { tenor: 'F', nota: 'responsorio breve en Fa, las cadencias bajan a Re' },
+      evang: { modo: 8, tenor: 'C', fijo: true, nota: 'Nunc dimittis en un tono distinto de los salmos: recitación en Do, final en Sol (Modo VIII)' },
+      oracion: { tenor: 'F#', nota: 'oración en recto tono sobre Fa♯; la última frase cae a Mi' },
+      mariana: { tenor: 'G', nota: 'melodía propia en torno a Sol y Do, pausada' } } },
+    /* v2.51: II domingo de Cuaresma (1-III-2026), semana II del salterio, mismo coro. Manda los domingos de Cuaresma de la semana II
+       del salterio (los de la semana III y los demás siguen con el 8-III); sus I Vísperas sirven para todas las I Vísperas de Cuaresma.
+       Las Completas del 1-III son la misma grabación que las del 7 y 8-III. Aproximado. */
+    'ol-20260301': { nombre: 'Grabación: Oficio de lectura, II domingo de Cuaresma (1-III-2026)', hora: 'Oficio de lectura', dias: [0], salterio: [2], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      salmodia: { modo: 10, tenor: 'B', fijo: true, nota: 'los salmos en el mismo tono: Mi mayor, recita en Si, final en Mi' },
+      versiculo: { tenor: 'G', nota: 'versículo en Sol' },
+      lectura1: { tenor: 'C', nota: 'leída, en torno a Do' }, lectura2: { tenor: 'C', nota: 'leída, en torno a Do' }, lectura3: { tenor: 'C', nota: 'leída' },
+      resp1: { tenor: 'D', nota: 'responsorio recitado en torno a Re' }, resp2: { tenor: 'Bb', nota: 'responsorio recitado en torno a Si♭' },
+      oracion: { tenor: 'F', nota: 'oración en recto tono sobre Fa' }, fin: { tenor: 'E', nota: 'conclusión en Mi' } } },
+    'la-20260301': { nombre: 'Grabación: Laudes, II domingo de Cuaresma (1-III-2026)', hora: 'Laudes', dias: [0], salterio: [2], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa♯' },
+      himno: { modo: 9, tenor: 'C', final: 'F', nota: 'Fa mayor: en torno a Do' },
+      salmodia: { tonos: [{ modo: 9, tenor: 'A' }, { modo: 9, tenor: 'D' }, { modo: 9, tenor: 'D' }],
+        nota: 'como en la grabación: Sal 117 en Re mayor (La→Re); cántico y Sal 150 en Sol mayor (Re→Sol)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, resp: { tenor: 'D', nota: 'responsorio breve en Re' },
+      evang: { modo: 10, tenor: 'B', fijo: true, nota: 'Benedictus: recita en Si, final en Mi' },
+      preces: { tenor: 'F', nota: 'preces en Fa; la respuesta cae a Do' }, pn: { tenor: 'G', nota: 'Padre nuestro en torno a Sol' },
+      oracion: { tenor: 'F', nota: 'oración en recto tono sobre Fa' }, fin: { tenor: 'Eb', nota: 'conclusión en Mi♭' } } },
+    'te-20260301': { nombre: 'Grabación: Tercia, II domingo de Cuaresma (1-III-2026)', hora: 'Tercia', dias: [0], salterio: [2], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa♯' },
+      himno: { modo: 2, tenor: 'F#', final: 'Eb', nota: 'Mi♭ menor: en torno a Fa♯ (Sol♭)' },
+      salmodia: { modo: 3, tenor: 'C', fijo: true, nota: 'los salmos en el mismo tono: recita en Do, final en Mi (Modo III)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, versiculo: { tenor: 'G', nota: 'versículo en Sol' },
+      oracion: { tenor: 'E', nota: 'oración en recto tono sobre Mi' }, fin: { tenor: 'E', nota: 'conclusión en Mi' } } },
+    'se-20260301': { nombre: 'Grabación: Sexta, II domingo de Cuaresma (1-III-2026)', hora: 'Sexta', dias: [0], salterio: [2], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa♯' },
+      himno: { modo: 9, tenor: 'F#', final: 'B', nota: 'Si mayor: en torno a Fa♯' },
+      salmodia: { modo: 10, tenor: 'B', fijo: true, nota: 'los salmos en el mismo tono: recita en Si, final en Mi' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, versiculo: { tenor: 'G', nota: 'versículo en Sol' },
+      oracion: { tenor: 'E', nota: 'oración en recto tono sobre Mi' }, fin: { tenor: 'C#', nota: 'conclusión en Do♯' } } },
+    'no-20260301': { nombre: 'Grabación: Nona, II domingo de Cuaresma (1-III-2026)', hora: 'Nona', dias: [0], salterio: [2], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa♯' },
+      himno: { modo: 9, tenor: 'Eb', final: 'Ab', nota: 'La♭ mayor: en torno a Mi♭' },
+      salmodia: { modo: 9, tenor: 'F', fijo: true, nota: 'los salmos en el mismo tono: Si♭ mayor, recita en Fa, final en Si♭' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, versiculo: { tenor: 'G', nota: 'versículo en Sol' },
+      oracion: { tenor: 'E', nota: 'oración en recto tono sobre Mi' }, fin: { tenor: 'C#', nota: 'conclusión en Do♯' } } },
+    'vi1-20260301': { nombre: 'Grabación: I Vísperas, II domingo de Cuaresma (28-II-2026)', hora: 'Vísperas', horaDatos: 'I Vísperas', dias: [0], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa♯' },
+      himno: { modo: 9, tenor: 'D', final: 'G', nota: 'Sol mayor: en torno a Re' },
+      salmodia: { tonos: [{ modo: 2, tenor: 'E' }, { modo: 9, tenor: 'Ab' }, { modo: 6, tenor: 'F#' }],
+        nota: 'como en la grabación: 1.º Do♯ menor (Mi→Do♯, Modo II); 2.º Do♯ mayor (Sol♯→Do♯); cántico Re mayor (Fa♯→Re, Modo VI)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, resp: { tenor: 'G', nota: 'responsorio breve en Sol' },
+      evang: { modo: 9, tenor: 'D', fijo: true, nota: 'Magníficat en Sol mayor: recita en Re, final en Sol' },
+      preces: { tenor: 'F', nota: 'preces en Fa' }, pn: { tenor: 'G', nota: 'Padre nuestro en torno a Sol' },
+      oracion: { tenor: 'F#', nota: 'oración en recto tono sobre Fa♯' }, fin: { tenor: 'E', nota: 'conclusión en Mi' } } },
+    'vi2-20260301': { nombre: 'Grabación: II Vísperas, II domingo de Cuaresma (1-III-2026)', hora: 'Vísperas', horaDatos: 'Vísperas', dias: [0], salterio: [2], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa♯' },
+      himno: { modo: 9, tenor: 'A', final: 'D', nota: 'Re mayor: en torno a La' },
+      salmodia: { tonos: [{ modo: 10, tenor: 'B' }, { modo: 9, tenor: 'C' }, { modo: 6, tenor: 'A' }],
+        nota: 'como en la grabación: Sal 109 Mi (Si→Mi); Sal 113 B Fa mayor (Do→Fa); cántico Fa mayor (La→Fa, Modo VI)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, resp: { tenor: 'Eb', nota: 'responsorio breve en Mi♭' },
+      evang: { modo: 9, tenor: 'C', fijo: true, nota: 'Magníficat en Fa mayor: recita en Do, final en Fa' },
+      preces: { tenor: 'F', nota: 'preces en Fa' }, pn: { tenor: 'E', nota: 'Padre nuestro en torno a Mi' },
+      oracion: { tenor: 'E', nota: 'oración en recto tono sobre Mi' }, fin: { tenor: 'E', nota: 'conclusión en Mi' } } },
+    /* v2.50: días de Cuaresma entre semana: Miércoles de Ceniza (18-II-2026), mismo coro que el 8-III. Siete grabaciones
+       (Oficio de lectura, Laudes, Tercia, Sexta, Nona, Vísperas, Completas). Mandan de lunes a sábado en Cuaresma y Semana Santa
+       (Completas: de lunes a viernes; el sábado, las del 7-III). Aproximado. */
+    'ol-20260218': { nombre: 'Grabación: Oficio de lectura, Miércoles de Ceniza (18-II-2026)', hora: 'Oficio de lectura', dias: [1, 2, 3, 4, 5, 6], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      'inv-v': { tenor: 'F#', nota: 'versículo en Fa♯' },
+      salmodia: { modo: 9, tenor: 'A', fijo: true, nota: 'los tres salmos en el mismo tono: Re mayor, recita en La, final en Re' },
+      versiculo: { tenor: 'Ab', nota: 'versículo en La♭' },
+      lectura1: { tenor: 'C', nota: 'leída, en torno a Do' }, lectura2: { tenor: 'C', nota: 'leída, en torno a Do' },
+      resp1: { tenor: 'C', nota: 'responsorio recitado en torno a Do' }, resp2: { tenor: 'D', nota: 'responsorio recitado en torno a Re' },
+      oracion: { tenor: 'F', nota: 'oración en recto tono sobre Fa; cae a Mi' }, fin: { tenor: 'E', nota: 'conclusión en Mi' } } },
+    'la-20260218': { nombre: 'Grabación: Laudes, Miércoles de Ceniza (18-II-2026)', hora: 'Laudes', dias: [1, 2, 3, 4, 5, 6], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa♯' },
+      himno: { modo: 9, tenor: 'Eb', final: 'Ab', nota: 'La♭ mayor: en torno a Mi♭' },
+      salmodia: { tonos: [{ modo: 9, tenor: 'C' }, { modo: 2, tenor: 'F' }, { modo: 3, tenor: 'C' }],
+        nota: 'como en la grabación: 1.º Fa mayor (Do→Fa); cántico Re menor (Fa→Re, Modo II); 3.º Do→Mi (Modo III)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, resp: { tenor: 'Eb', nota: 'responsorio breve en Mi♭' },
+      evang: { modo: 2, tenor: 'F', fijo: true, nota: 'Benedictus en Re menor: recita en Fa, final en Re (Modo II)' },
+      preces: { tenor: 'F', nota: 'preces en Fa' }, pn: { tenor: 'E', nota: 'Padre nuestro en torno a Mi' },
+      oracion: { tenor: 'E', nota: 'oración en recto tono sobre Mi' }, fin: { tenor: 'E', nota: 'conclusión en Mi' } } },
+    'te-20260218': { nombre: 'Grabación: Tercia, Miércoles de Ceniza (18-II-2026)', hora: 'Tercia', dias: [1, 2, 3, 4, 5, 6], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa♯' },
+      himno: { modo: 9, tenor: 'C#', final: 'F#', nota: 'Fa♯ mayor: en torno a Do♯' },
+      salmodia: { modo: 2, tenor: 'F#', fijo: true, nota: 'los salmos en el mismo tono: Mi♭ menor, recita en Fa♯ (Sol♭), final en Mi♭ (Modo II)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, versiculo: { tenor: 'Ab', nota: 'versículo en La♭' },
+      oracion: { tenor: 'F', nota: 'oración en recto tono sobre Fa' }, fin: { tenor: 'Ab', nota: 'conclusión en La♭' } } },
+    'se-20260218': { nombre: 'Grabación: Sexta, Miércoles de Ceniza (18-II-2026)', hora: 'Sexta', dias: [1, 2, 3, 4, 5, 6], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa' },
+      himno: { modo: 10, tenor: 'B', final: 'E', nota: 'Mi mayor: en torno a Si' },
+      salmodia: { modo: 6, tenor: 'Ab', fijo: true, nota: 'los salmos en el mismo tono: Mi mayor, recita en Sol♯ (La♭), final en Mi (Modo VI)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, versiculo: { tenor: 'Ab', nota: 'versículo en La♭' },
+      oracion: { tenor: 'F', nota: 'oración en recto tono sobre Fa' }, fin: { tenor: 'Ab', nota: 'conclusión en La♭' } } },
+    'no-20260218': { nombre: 'Grabación: Nona, Miércoles de Ceniza (18-II-2026)', hora: 'Nona', dias: [1, 2, 3, 4, 5, 6], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa' },
+      himno: { modo: 9, tenor: 'D', final: 'G', nota: 'Sol mayor: en torno a Re' },
+      salmodia: { modo: 9, tenor: 'G', fijo: true, nota: 'los salmos en el mismo tono: Do mayor, recita en Sol, final en Do' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, versiculo: { tenor: 'A', nota: 'versículo en La' },
+      oracion: { tenor: 'C', nota: 'oración en recto tono sobre Do' }, fin: { tenor: 'Ab', nota: 'conclusión en La♭' } } },
+    'vi-20260218': { nombre: 'Grabación: Vísperas, Miércoles de Ceniza (18-II-2026)', hora: 'Vísperas', dias: [1, 2, 3, 4, 5, 6], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa' },
+      himno: { modo: 2, tenor: 'F#', final: 'Eb', nota: 'Mi♭ menor: en torno a Fa♯ (Sol♭)' },
+      salmodia: { modo: 2, tenor: 'F#', fijo: true, nota: 'las tres piezas en el mismo tono: recita en Fa♯ (Sol♭), final en Mi♭ (Modo II)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, resp: { tenor: 'G', nota: 'responsorio breve en Sol, final en Mi♭' },
+      evang: { modo: 2, tenor: 'F', fijo: true, nota: 'Magníficat en Re menor: recita en Fa, final en Re (Modo II)' },
+      preces: { tenor: 'F#', nota: 'preces en Fa♯' }, pn: { tenor: 'F#', nota: 'Padre nuestro en torno a Fa♯' },
+      oracion: { tenor: 'E', nota: 'oración en recto tono sobre Mi' }, fin: { tenor: 'Eb', nota: 'conclusión en Mi♭' } } },
+    'co-20260218': { nombre: 'Grabación: Completas, Miércoles de Ceniza (18-II-2026)', hora: 'Completas', dias: [1, 2, 3, 4, 5], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa' },
+      'examen-inv': { tenor: 'C', cerca: -7, estilo: 'hablado', silaba: 0.27, nota: 'monición hablada' },
+      'examen-sil': { silencio: 12, nota: 'silencio para el examen (12 s)' },
+      'examen-conf': { tenor: 'Bb', cerca: -5, estilo: 'co-confiteor', silaba: 0.205, nota: '«Yo confieso» en recto tono sobre Si♭' },
+      'examen-abs': { tenor: 'Bb', cerca: -7, estilo: 'hablado', silaba: 0.25, nota: 'absolución en torno a Si♭' },
+      himno: { modo: 2, tenor: 'F#', final: 'Eb', nota: 'Mi♭ menor: en torno a Fa♯ (Sol♭)' },
+      salmodia: { tonos: [{ modo: 6, tenor: 'G' }, { modo: 9, tenor: 'F#' }], nota: '1.º Mi♭ mayor (Sol→Mi♭, Modo VI); 2.º Si mayor (Fa♯→Si)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, resp: { tenor: 'F#', nota: '«En tus manos, Señor» en Fa♯, final en Re' },
+      evang: { modo: 9, tenor: 'F#', fijo: true, nota: 'Nunc dimittis en Si mayor: recita en Fa♯, final en Si' },
+      oracion: { tenor: 'E', nota: 'oración en recto tono sobre Mi' } } },
+    /* v2.49: domingo fuera de Cuaresma: VI domingo del Tiempo Ordinario (15-II-2026), serie «Canto de la Liturgia de las Horas».
+       Las nueve grabaciones del día (Oficio de lectura, Laudes, Tercia, Sexta, Nona, I y II Vísperas, Completas del sábado y del domingo).
+       Mandan el domingo (y en las I Vísperas) fuera de Cuaresma y Semana Santa; en Cuaresma, las del 8-III-2026. Aproximado. */
+    'ol-20260215': { nombre: 'Grabación: Oficio de lectura, VI domingo del T. O. (15-II-2026)', hora: 'Oficio de lectura', dias: [0], tiempos: ['Ordinario', 'Adviento', 'Navidad', 'Pascua'], partes: {
+      'inv-v': { tenor: 'E', nota: 'versículo en Mi' },
+      'inv-salmo': { modo: 10, tenor: 'B', nota: 'invitatorio en Mi mayor: recita en Si, final en Mi' },
+      himno: { modo: 9, tenor: 'C#', final: 'F#', nota: 'Fa♯ mayor: en torno a Do♯, final en Fa♯' },
+      salmodia: { modo: 2, tenor: 'F', fijo: true, nota: 'las tres partes del salmo en el mismo tono: recita en Fa, final en Re (Modo II)' },
+      versiculo: { tenor: 'A', nota: 'versículo en La' },
+      lectura1: { tenor: 'C', nota: 'leída, en torno a Do' }, lectura2: { tenor: 'C', nota: 'leída, en torno a Do' }, lectura3: { tenor: 'C', nota: 'leída' },
+      resp1: { tenor: 'C', nota: 'responsorio recitado en torno a Do' }, resp2: { tenor: 'C', nota: 'responsorio recitado en torno a Do' }, resp3: { tenor: 'C', nota: 'en torno a Do' },
+      tedeum: { modo: 9, tenor: 'Eb', final: 'Ab', nota: 'Te Deum en La♭ mayor: en torno a Mi♭, final en La♭' },
+      oracion: { tenor: 'A', nota: 'oración en recto tono sobre La' }, fin: { tenor: 'D', nota: 'conclusión en Re' } } },
+    'la-20260215': { nombre: 'Grabación: Laudes, VI domingo del T. O. (15-II-2026)', hora: 'Laudes', dias: [0], tiempos: ['Ordinario', 'Adviento', 'Navidad', 'Pascua'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa♯' },
+      'inv-v': { tenor: 'E', nota: 'versículo en Mi' }, 'inv-salmo': { modo: 10, tenor: 'B', nota: 'invitatorio en Mi mayor: recita en Si, final en Mi' },
+      himno: { modo: 9, tenor: 'C#', final: 'F#', nota: 'Fa♯ mayor: en torno a Do♯, final en Fa♯' },
+      salmodia: { tonos: [{ modo: 9, tenor: 'C' }, { modo: 9, tenor: 'C#' }, { modo: 9, tenor: 'C#' }],
+        nota: 'como en la grabación: 1.º Fa mayor (recita en Do, final Fa); cántico y 3.º Fa♯ mayor (recitan en Do♯, final Fa♯)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada, en torno a Do' },
+      resp: { tenor: 'E', nota: 'responsorio breve en Mi' },
+      evang: { modo: 9, tenor: 'C#', fijo: true, nota: 'Benedictus en Fa♯ mayor: recita en Do♯, final en Fa♯' },
+      preces: { tenor: 'F#', nota: 'preces en Fa♯' }, pn: { tenor: 'E', nota: 'Padre nuestro en torno a Mi' },
+      oracion: { tenor: 'E', nota: 'oración en recto tono sobre Mi' }, fin: { tenor: 'Ab', nota: 'conclusión en La♭' } } },
+    'te-20260215': { nombre: 'Grabación: Tercia, VI domingo del T. O. (15-II-2026)', hora: 'Tercia', dias: [0], tiempos: ['Ordinario', 'Adviento', 'Navidad', 'Pascua'], partes: {
+      intro: { tenor: 'F', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa' },
+      himno: { modo: 9, tenor: 'F#', final: 'B', nota: 'Si mayor: en torno a Fa♯' },
+      salmodia: { tonos: [{ modo: 9, tenor: 'F' }, { modo: 10, tenor: 'B' }, { modo: 10, tenor: 'B' }],
+        nota: 'como en la grabación: 1.º Si♭ mayor (recita en Fa, final Si♭); 2.º y 3.º Mi (recitan en Si, final Mi)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, versiculo: { tenor: 'Ab', nota: 'versículo en La♭' },
+      oracion: { tenor: 'F', nota: 'oración en recto tono sobre Fa' }, fin: { tenor: 'D', nota: 'conclusión en Re' } } },
+    'se-20260215': { nombre: 'Grabación: Sexta, VI domingo del T. O. (15-II-2026)', hora: 'Sexta', dias: [0], tiempos: ['Ordinario', 'Adviento', 'Navidad', 'Pascua'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa♯' },
+      himno: { modo: 9, tenor: 'Bb', final: 'Eb', nota: 'Mi♭ mayor: en torno a Si♭' },
+      salmodia: { tonos: [{ modo: 9, tenor: 'C#' }, { modo: 9, tenor: 'D' }, { modo: 10, tenor: 'B' }],
+        nota: 'como en la grabación: 1.º Fa♯ mayor (Do♯→Fa♯); 2.º Sol mayor (Re→Sol); 3.º Mi (Si→Mi)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, versiculo: { tenor: 'Ab', nota: 'versículo en La♭' },
+      oracion: { tenor: 'F#', nota: 'oración en recto tono sobre Fa♯' }, fin: { tenor: 'Ab', nota: 'conclusión en La♭' } } },
+    'no-20260215': { nombre: 'Grabación: Nona, VI domingo del T. O. (15-II-2026)', hora: 'Nona', dias: [0], tiempos: ['Ordinario', 'Adviento', 'Navidad', 'Pascua'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa♯' },
+      himno: { modo: 10, tenor: 'B', final: 'E', nota: 'Mi mayor: en torno a Si' },
+      salmodia: { modo: 6, tenor: 'F#', fijo: true, nota: 'los salmos en el mismo tono: Re mayor, recita en Fa♯, final en Re (Modo VI)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, versiculo: { tenor: 'Ab', nota: 'versículo en La♭' },
+      oracion: { tenor: 'C#', nota: 'oración en recto tono sobre Do♯' }, fin: { tenor: 'Ab', nota: 'conclusión en La♭' } } },
+    'vi1-20260215': { nombre: 'Grabación: I Vísperas, VI domingo del T. O. (14-II-2026)', hora: 'Vísperas', horaDatos: 'I Vísperas', tiempos: ['Ordinario', 'Adviento', 'Navidad', 'Pascua'], partes: {
+      intro: { tenor: 'G', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Sol' },
+      himno: { modo: 10, tenor: 'B', final: 'E', nota: 'Mi mayor: en torno a Si' },
+      salmodia: { tonos: [{ modo: 10, tenor: 'B' }, { modo: 9, tenor: 'Eb' }, { modo: 9, tenor: 'D' }],
+        nota: 'como en la grabación: 1.º Mi (Si→Mi); 2.º La♭ mayor (Mi♭→La♭); cántico Sol mayor (Re→Sol)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, resp: { tenor: 'F#', nota: 'responsorio breve en Fa♯' },
+      evang: { modo: 9, tenor: 'C#', fijo: true, nota: 'Magníficat en Fa♯ mayor: recita en Do♯, final en Fa♯' },
+      preces: { tenor: 'F#', nota: 'preces en Fa♯' }, pn: { tenor: 'F', nota: 'Padre nuestro en torno a Fa' },
+      oracion: { tenor: 'F', nota: 'oración en recto tono sobre Fa' }, fin: { tenor: 'F', nota: 'conclusión en Fa' } } },
+    'vi2-20260215': { nombre: 'Grabación: II Vísperas, VI domingo del T. O. (15-II-2026)', hora: 'Vísperas', horaDatos: 'Vísperas', dias: [0], tiempos: ['Ordinario', 'Adviento', 'Navidad', 'Pascua'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa♯' },
+      himno: { modo: 10, tenor: 'B', final: 'E', nota: 'Mi mayor: en torno a Si' },
+      salmodia: { tonos: [{ modo: 9, tenor: 'A' }, { modo: 9, tenor: 'C' }, { modo: 9, tenor: 'D' }],
+        nota: 'como en la grabación: 1.º Re mayor (La→Re); 2.º Fa mayor (Do→Fa); cántico Sol mayor (Re→Sol)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, resp: { tenor: 'Eb', nota: 'responsorio breve en Mi♭' },
+      evang: { modo: 9, tenor: 'C#', fijo: true, nota: 'Magníficat en Fa♯ mayor: recita en Do♯, final en Fa♯' },
+      preces: { tenor: 'F#', nota: 'preces en Fa♯' }, pn: { tenor: 'E', nota: 'Padre nuestro en torno a Mi' },
+      oracion: { tenor: 'E', nota: 'oración en recto tono sobre Mi' }, fin: { tenor: 'E', nota: 'conclusión en Mi' } } },
+    'co-sab-20260214': { nombre: 'Grabación: Completas del sábado fuera de Cuaresma (14-II-2026)', hora: 'Completas', dias: [6], tiempos: ['Ordinario', 'Adviento', 'Navidad', 'Pascua'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa♯' },
+      'examen-inv': { tenor: 'C', cerca: -7, estilo: 'hablado', silaba: 0.27, nota: 'monición hablada' },
+      'examen-sil': { silencio: 10, nota: 'silencio para el examen (10 s)' },
+      'examen-conf': { tenor: 'E', cerca: -5, estilo: 'co-confiteor', silaba: 0.205, nota: '«Yo confieso» en recto tono sobre Mi' },
+      'examen-abs': { tenor: 'E', cerca: -7, estilo: 'hablado', silaba: 0.25, nota: 'absolución en torno a Mi' },
+      himno: { modo: 9, tenor: 'Eb', final: 'Ab', nota: 'La♭ mayor: en torno a Mi♭' },
+      salmodia: { tonos: [{ modo: 9, tenor: 'D' }, { modo: 9, tenor: 'Bb' }], nota: 'Sal 4 en Sol mayor (Re→Sol); Sal 133 en Mi♭ mayor (Si♭→Mi♭)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, resp: { tenor: 'E', nota: '«En tus manos, Señor» en Mi' },
+      evang: { modo: 9, tenor: 'Ab', fijo: true, nota: 'Nunc dimittis en Do♯ mayor: recita en La♭ (Sol♯), final en Do♯' },
+      oracion: { tenor: 'Eb', nota: 'oración en recto tono sobre Mi♭' }, mariana: { tenor: 'C#', nota: 'antífona a la Virgen en torno a Do♯' } } },
+    'co-dom-20260215': { nombre: 'Grabación: Completas del domingo fuera de Cuaresma (15-II-2026)', hora: 'Completas', dias: [0], tiempos: ['Ordinario', 'Adviento', 'Navidad', 'Pascua'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'invocación en Fa♯' },
+      'examen-inv': { tenor: 'C', cerca: -7, estilo: 'hablado', silaba: 0.27, nota: 'monición hablada' },
+      'examen-sil': { silencio: 13, nota: 'silencio para el examen (13 s)' },
+      'examen-conf': { tenor: 'E', cerca: -5, estilo: 'co-confiteor', silaba: 0.205, nota: '«Yo confieso» en recto tono sobre Mi' },
+      'examen-abs': { tenor: 'E', cerca: -7, estilo: 'hablado', silaba: 0.25, nota: 'absolución en torno a Mi' },
+      himno: { modo: 3, tenor: 'C', final: 'E', nota: 'en torno a Do, final en Mi (Modo III)' },
+      salmodia: { modo: 10, tenor: 'B', fijo: true, nota: 'salmo 90: recita en Si, final en Mi' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada' }, resp: { tenor: 'E', nota: '«En tus manos, Señor» en Mi' },
+      evang: { modo: 9, tenor: 'A', fijo: true, nota: 'Nunc dimittis en Re mayor: recita en La, final en Re' },
+      oracion: { tenor: 'Eb', nota: 'oración en recto tono sobre Mi♭' }, mariana: { tenor: 'G', nota: 'antífona a la Virgen en Sol y Do' } } },
+    /* v2.47: serie «Canto de la Liturgia de las Horas» (la misma de la grabación modelo de Completas, 14 min): Laudes (25 min),
+       Tercia (15), Sexta (11), Nona (12) y Vísperas (22). Es la de todos los días; el domingo mandan las del 8-III-2026 (dias: [0]).
+       Mismo método que la v2.45: recitación = nota más sostenida, final = última nota de la pieza. Aproximado. */
+    'se-la': { nombre: 'Grabación modelo: Laudes («Canto de la Liturgia de las Horas»)', hora: 'Laudes', partes: {
+      intro: { tenor: 'G', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'recitado en Sol, como en Completas' },
+      himno: { modo: 9, tenor: 'C', final: 'F', nota: 'Fa mayor: en torno a Do, final en Fa' },
+      salmodia: { tonos: [{ modo: 9, tenor: 'Ab' }, { modo: 10, tenor: 'B' }, { modo: 9, tenor: 'Eb' }],
+        nota: 'cada pieza en su tono, como en la grabación: 1.º Do♯ mayor (recita en La♭/Sol♯, final Do♯); cántico Mi (recita en Si, final Mi); 3.º La♭ mayor (recita en Mi♭, final La♭)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada, en torno a Do' },
+      resp: { modo: 1, tenor: 'A', nota: 'responsorio breve en Re menor: en torno a La, final en Re' },
+      evang: { modo: 9, tenor: 'A', fijo: true, nota: 'Benedictus en Re mayor: recita en La, final en Re' },
+      preces: { tenor: 'G', nota: 'preces en recto tono sobre Sol' },
+      pn: { tenor: 'F#', nota: 'Padre nuestro en torno a Fa♯ y Re' },
+      oracion: { tenor: 'F', nota: 'oración en recto tono sobre Fa' },
+      fin: { tenor: 'D', nota: 'conclusión en Re' } } },
+    'se-te': { nombre: 'Grabación modelo: Tercia («Canto de la Liturgia de las Horas»)', hora: 'Tercia', partes: {
+      intro: { tenor: 'G', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'recitado en Sol, como en Completas' },
+      himno: { modo: 9, tenor: 'A', final: 'D', nota: 'Re mayor: en torno a La, final en Re' },
+      salmodia: { modo: 10, tenor: 'B', fijo: true, nota: 'los salmos en el mismo tono: recita en Si, final en Mi' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada, en torno a Do' },
+      versiculo: { tenor: 'F#', nota: 'versículo en Fa♯' },
+      oracion: { tenor: 'G', nota: 'oración en recto tono sobre Sol' },
+      fin: { tenor: 'D', nota: 'conclusión en Re' } } },
+    'se-se': { nombre: 'Grabación modelo: Sexta («Canto de la Liturgia de las Horas»)', hora: 'Sexta', partes: {
+      intro: { tenor: 'G', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'recitado en Sol, como en Completas' },
+      himno: { modo: 9, tenor: 'F', final: 'Bb', nota: 'Si♭ mayor: en torno a Fa' },
+      salmodia: { tonos: [{ modo: 9, tenor: 'C#' }, { modo: 9, tenor: 'Eb' }],
+        nota: 'cada salmo en su tono: 1.º Fa♯ mayor (recita en Do♯, final Fa♯); 2.º La♭ mayor (recita en Mi♭, final La♭)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada, en torno a Do' },
+      versiculo: { tenor: 'D', nota: 'versículo en Re' },
+      oracion: { tenor: 'D', nota: 'oración en recto tono sobre Re' },
+      fin: { tenor: 'D', nota: 'conclusión en Re' } } },
+    'se-no': { nombre: 'Grabación modelo: Nona («Canto de la Liturgia de las Horas»)', hora: 'Nona', partes: {
+      intro: { tenor: 'G', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'recitado en Sol, como en Completas' },
+      himno: { modo: 9, tenor: 'C', final: 'F', nota: 'Fa mayor: en torno a Do, final en Fa' },
+      salmodia: { tonos: [{ modo: 9, tenor: 'D' }, { modo: 9, tenor: 'Bb' }, { modo: 9, tenor: 'D' }],
+        nota: 'cada salmo en su tono: 1.º y 3.º Sol mayor (recita en Re, final Sol); 2.º Mi♭ mayor (recita en Si♭, final Mi♭)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada, en torno a Do' },
+      versiculo: { tenor: 'D', nota: 'versículo en Re' },
+      oracion: { tenor: 'D', nota: 'oración en recto tono sobre Re' },
+      fin: { tenor: 'A', nota: 'conclusión en La' } } },
+    'se-vi': { nombre: 'Grabación modelo: Vísperas («Canto de la Liturgia de las Horas»)', hora: 'Vísperas', partes: {
+      intro: { tenor: 'G', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'recitado en Sol, como en Completas' },
+      himno: { modo: 9, tenor: 'Bb', final: 'Eb', nota: 'Mi♭ mayor: en torno a Si♭, final en Mi♭' },
+      salmodia: { tonos: [{ modo: 10, tenor: 'B' }, { modo: 2, tenor: 'G' }, { modo: 9, tenor: 'Eb' }],
+        nota: 'cada pieza en su tono, como en la grabación: 1.º Mi mayor (recita en Si, final Mi); 2.º Mi menor (recita en Sol, final Mi); cántico La♭ mayor (recita en Mi♭, final La♭)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada, en torno a Do' },
+      resp: { tenor: 'A', nota: 'responsorio breve en torno a La' },
+      evang: { modo: 9, tenor: 'A', fijo: true, nota: 'Magníficat en Re mayor: recita en La, final en Re' },
+      preces: { tenor: 'F', nota: 'preces en recto tono sobre Fa' },
+      pn: { tenor: 'F', nota: 'Padre nuestro en torno a Fa' },
+      oracion: { tenor: 'F', nota: 'oración en recto tono sobre Fa' },
+      fin: { tenor: 'F#', nota: 'conclusión en Fa♯' } } },
+    /* v2.46: Completas del sábado (después de las I Vísperas) y del domingo (después de las II Vísperas), grabadas por el coro
+       del 8-III-2026. Mandan esos días (y cuando la norma pide las Completas del sábado o del domingo, OGLH 88); de lunes a viernes
+       sigue la grabación modelo de 14 min (perfil co-20261110). */
+    'co-sab-20260307': { nombre: 'Grabación: Completas del sábado, después de las I Vísperas (7-III-2026)', hora: 'Completas', dias: [6], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'el sábado la invocación va en Fa' },
+      'examen-inv': { tenor: 'C', cerca: -7, estilo: 'hablado', silaba: 0.27, nota: 'monición hablada (en torno a Do)' },
+      'examen-sil': { silencio: 2, nota: 'silencio breve' },
+      'examen-conf': { tenor: 'E', cerca: -5, estilo: 'co-confiteor', silaba: 0.205, nota: '«Yo confieso» en recto tono sobre Mi' },
+      'examen-abs': { tenor: 'E', cerca: -7, estilo: 'hablado', silaba: 0.25, nota: 'absolución en torno a Mi; «Amén» de todos' },
+      himno: { modo: 10, tenor: 'B', final: 'E', nota: 'Mi mayor: en torno a Si, final en Mi' },
+      salmodia: { modo: 9, tenor: 'C#', fijo: true, nota: 'salmos 4 y 133 en el mismo tono: Fa♯ mayor, recita en Do♯, final en Fa♯' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada, en torno a Do' },
+      resp: { tenor: 'Ab', nota: '«En tus manos, Señor» en torno a Sol♯, final en Mi' },
+      evang: { modo: 9, tenor: 'G', fijo: true, nota: 'Nunc dimittis: Do mayor, recita en Sol, final en Do' },
+      oracion: { tenor: 'E', nota: 'oración en recto tono sobre Mi' },
+      mariana: { tenor: 'C', nota: 'antífona a la Virgen en Do mayor (Do-Sol-Mi)' } } },
+    'co-dom-20260308': { nombre: 'Grabación: Completas del domingo, después de las II Vísperas (8-III-2026)', hora: 'Completas', dias: [0], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'el domingo la invocación va en Fa♯, como en las demás horas del día' },
+      'examen-inv': { tenor: 'C', cerca: -7, estilo: 'hablado', silaba: 0.27, nota: 'monición hablada (en torno a Do)' },
+      'examen-sil': { silencio: 16, nota: 'silencio largo para el examen (16 s, como en la grabación)' },
+      'examen-conf': { tenor: 'Eb', cerca: -5, estilo: 'co-confiteor', silaba: 0.205, nota: '«Yo confieso» en recto tono sobre Mi♭' },
+      'examen-abs': { tenor: 'Eb', cerca: -7, estilo: 'hablado', silaba: 0.25, nota: 'absolución en torno a Mi♭; «Amén» de todos' },
+      himno: { modo: 9, tenor: 'D', final: 'G', nota: 'Sol mayor: en torno a Re, final en Sol' },
+      salmodia: { modo: 6, tenor: 'F#', fijo: true, nota: 'salmo 90: Re mayor, recita en Fa♯, final en Re (Modo VI)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada, en torno a Do' },
+      resp: { tenor: 'G', nota: '«En tus manos, Señor» en Sol, final en Mi♭' },
+      evang: { modo: 9, tenor: 'F#', fijo: true, nota: 'Nunc dimittis: Si mayor, recita en Fa♯, final en Si' },
+      oracion: { tenor: 'E', nota: 'oración en recto tono sobre Mi' },
+      mariana: { tenor: 'F', nota: 'antífona a la Virgen en Fa mayor (Fa-Do-La)' } } },
+    /* v2.45: el día completo del III domingo de Cuaresma (8-III-2026), grabado por el mismo coro que el Oficio de lectura.
+       Por hora: nota de recitación (la más sostenida) y final de cada parte; el modo se elige por la distancia recitación-final.
+       Solo alturas y pausas; aproximado (el órgano y el eco de la iglesia acompañan la voz). */
+    'la-20260308': { nombre: 'Grabación: Laudes, III domingo de Cuaresma (8-III-2026)', hora: 'Laudes', dias: [0], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'recitado en Fa♯ (el mismo giro que en Completas, medio tono más abajo)' },
+      himno: { modo: 9, tenor: 'Bb', final: 'Eb', nota: 'Mi♭ mayor: en torno a Si♭, final en Mi♭' },
+      salmodia: { tonos: [{ modo: 6, tenor: 'Ab' }, { modo: 9, tenor: 'C' }, { modo: 8, tenor: 'B' }],
+        nota: 'cada pieza en su tono, como en la grabación: 1.º Mi mayor (recita en Sol♯, final Mi); cántico Fa mayor (recita en Do, final Fa); 3.º recita en Si, final Fa♯' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada, en torno a Do' },
+      resp: { tenor: 'Eb', nota: 'responsorio breve en Mi♭' },
+      evang: { modo: 10, tenor: 'B', fijo: true, nota: 'Benedictus: recita en Si, final en Mi (el mismo tono del Magníficat y de los salmos de Completas)' },
+      preces: { tenor: 'F', nota: 'preces recitadas en Fa; la respuesta cae a Do' },
+      pn: { tenor: 'B', nota: 'Padre nuestro en torno a Si y Mi' },
+      oracion: { tenor: 'F', nota: 'oración en recto tono sobre Fa; cae a Mi al final' },
+      fin: { tenor: 'F', nota: 'conclusión en Fa' } } },
+    'te-20260308': { nombre: 'Grabación: Tercia, III domingo de Cuaresma (8-III-2026)', hora: 'Tercia', dias: [0], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'recitado en Fa♯ (el mismo giro que en Completas, medio tono más abajo)' },
+      himno: { modo: 3, tenor: 'C', final: 'E', nota: 'en torno a Do, final en Mi (Modo III)' },
+      salmodia: { modo: 3, tenor: 'C', fijo: true, nota: 'los tres salmos en el mismo tono (antífona única de Cuaresma): recita en Do, final en Mi (Modo III)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada, en torno a Do' },
+      versiculo: { tenor: 'G', nota: 'versículo en recto tono sobre Sol' },
+      oracion: { tenor: 'E', nota: 'oración en recto tono sobre Mi' },
+      fin: { tenor: 'E', nota: 'conclusión en Mi' } } },
+    'se-20260308': { nombre: 'Grabación: Sexta, III domingo de Cuaresma (8-III-2026)', hora: 'Sexta', dias: [0], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'recitado en Fa♯ (el mismo giro que en Completas, medio tono más abajo)' },
+      himno: { modo: 10, tenor: 'B', final: 'E', nota: 'Mi mayor: en torno a Si, final en Mi' },
+      salmodia: { modo: 10, tenor: 'B', fijo: true, nota: 'los tres salmos en el mismo tono: recita en Si, final en Mi' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada, en torno a Do' },
+      versiculo: { tenor: 'E', nota: 'versículo en Mi' },
+      oracion: { tenor: 'E', nota: 'oración en recto tono sobre Mi' },
+      fin: { tenor: 'C#', nota: 'conclusión en Do♯' } } },
+    'no-20260308': { nombre: 'Grabación: Nona, III domingo de Cuaresma (8-III-2026)', hora: 'Nona', dias: [0], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'recitado en Fa♯ (el mismo giro que en Completas, medio tono más abajo)' },
+      himno: { modo: 9, tenor: 'Eb', final: 'Ab', nota: 'La♭ mayor: en torno a Mi♭, final en La♭' },
+      salmodia: { modo: 9, tenor: 'F', fijo: true, nota: 'los tres salmos en el mismo tono: Si♭ mayor, recita en Fa, final en Si♭' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada, en torno a Do' },
+      versiculo: { tenor: 'E', nota: 'versículo en Mi' },
+      oracion: { tenor: 'E', nota: 'oración en recto tono sobre Mi' },
+      fin: { tenor: 'C#', nota: 'conclusión en Do♯' } } },
+    'vi-20260308': { nombre: 'Grabación: II Vísperas, III domingo de Cuaresma (8-III-2026)', hora: 'Vísperas', dias: [0], tiempos: ['Cuaresma', 'Semana Santa'], partes: {
+      intro: { tenor: 'F#', estilo: 'co-intro', estiloGloria: 'co-gloria', silaba: 0.49, nota: 'recitado en Fa♯ (el mismo giro que en Completas, medio tono más abajo)' },
+      himno: { modo: 1, tenor: 'G', final: 'C', nota: 'Do menor: en torno a Sol, final en Do' },
+      salmodia: { tonos: [{ modo: 6, tenor: 'G' }, { modo: 9, tenor: 'G' }, { modo: 9, tenor: 'Eb' }],
+        nota: 'cada pieza en su tono, como en la grabación: 1.º Mi♭ mayor (recita en Sol, final Mi♭); 2.º Do mayor (recita en Sol, final Do); cántico La♭ mayor (recita en Mi♭, final La♭)' },
+      lectura: { tenor: 'C', nota: 'lectura breve hablada, en torno a Do', silencioDespues: 8 },
+      resp: { tenor: 'Eb', nota: 'responsorio breve en Mi♭' },
+      evang: { modo: 10, tenor: 'B', fijo: true, nota: 'Magníficat: recita en Si, final en Mi' },
+      preces: { tenor: 'F', nota: 'preces recitadas en Fa; la respuesta cae a Do' },
+      pn: { tenor: 'B', nota: 'Padre nuestro en torno a Si y Mi' },
+      oracion: { tenor: 'F', nota: 'oración en recto tono sobre Fa; cae a Mi al final' },
+      fin: { tenor: 'E', nota: 'conclusión y bendición en Mi' } } },
   };
 
   // Tesituras: nota objetivo para la recitación (MIDI internacional, C4 = 60 = "Do central")
@@ -1471,7 +1817,7 @@ const Motor = (() => {
     ev.forEach((e, k) => {
       const on = tick(e.t), off = Math.max(on + 1, tick(e.t + e.d) - 2);
       let letra;
-      if (!e.primera) letra = sv ? '-' : '+';
+      if (!e.primera) letra = (sv || op.programa === 'ace') ? '-' : '+';   // ACE Studio: «-» prolonga la sílaba anterior
       else if (!sv) letra = limpia(e.sil.txt) || 'a';
       else {
         if (!enPalabra) {                                   // primera sílaba de la palabra: la palabra completa
@@ -2509,7 +2855,7 @@ const Oficio = (() => {
       out.push({ parte, filas, tl, tipo: 'recitado' });
     };
     const MD = (parte, m) => (parte && parte.tonoFijo ? m : op.modoDe ? op.modoDe(parte, m) : m);       // perfil tonal de una grabación: modo por parte
-    const encab = (p, parte, modo) => p.titulo.replace(/ — .*$/, '') + (p.notas && !/sin Gloria/.test(p.notas) ? ' · ' + p.notas : '') + ' · ' + (modo === 9 ? 'Tono de la grabación' : 'Modo ' + M.ROMANOS[modo || (parte ? MD(parte, p.modo || 8) : (p.modo || 8))]);
+    const encab = (p, parte, modo) => p.titulo.replace(/ — .*$/, '') + (p.notas && !/sin Gloria/.test(p.notas) ? ' · ' + p.notas : '') + ' · ' + (modo === 9 ? 'Tono de la grabación' : modo === 10 ? 'Tono de Completas (grabación)' : 'Modo ' + M.ROMANOS[modo || (parte ? MD(parte, p.modo || 8) : (p.modo || 8))]);
     // v2.38.2: cada salmo de la hora en un tono distinto (1.º, 2.º, 3.º y el cántico), combinación fija para cada fecha y hora
     let tonosHora = null, nTono = 0;
     const tonoSiguiente = () => {
@@ -2612,15 +2958,18 @@ const Oficio = (() => {
           break;
         }
         case 'salmodia': {
-          let modoUnica = null;
+          let modoUnica = null, tpU = null;
           parte.piezas.forEach((sp, k) => {
-            if (!parte.antifonaUnica || k === 0) modoUnica = tonoSiguiente();          // con antífona única, un solo tono para todos
+            if (!parte.antifonaUnica || k === 0) {
+              tpU = op.tonoPieza ? op.tonoPieza(parte, k) : null;                       // v2.45: tono de cada pieza según la grabación de la hora
+              modoUnica = (tpU && tpU.modo) || (op.modoFijoDe && op.modoFijoDe(parte)) || tonoSiguiente();   // v2.44: la grabación de la hora fija el tono
+            }          // con antífona única, un solo tono para todos
             sp = modoUnica ? { ...sp, modo: modoUnica } : sp;
             const modo = sp.modo || 8;
             const ant = parte.antifonaUnica || (parte.antPropias && parte.antPropias[k + 1]) || (parte.pascua ? (sp.antifona_pascual || (sp.antifona ? sp.antifona.replace(/\.?$/, '. Aleluya.') : null)) : sp.antifona);
             const primeraDeUnica = !parte.antifonaUnica || k === 0, ultimaDeUnica = !parte.antifonaUnica || k === parte.piezas.length - 1;
             const nombre = (k === 0 ? parte.nombre : '') ;
-            const mt = modoUnica ? { ...parte, tonoFijo: true } : parte;
+            const mt = modoUnica ? { ...parte, tonoFijo: true, tenorPieza: tpU && tpU.tenor || undefined } : parte;
             if (primeraDeUnica) antifona({ ...mt, nombre, sub: k > 0 }, ant, modo, true, encab(sp, mt, modoUnica));
             salmo({ ...mt, nombre: primeraDeUnica && ant ? '' : nombre, sub: true }, sp, ant, { encabezado: primeraDeUnica && ant ? null : encab(sp, mt, modoUnica) });
             if (ultimaDeUnica) antifona({ ...mt, nombre: '', sub: true }, ant, modo, false);
@@ -2629,7 +2978,7 @@ const Oficio = (() => {
         }
         case 'antifonaSola': antifona(parte, parte.antifona, p.modo || 8, true); break;
         case 'evangelico': {
-          const tv = tonoSiguiente(), pe = tv ? { ...parte, tonoFijo: true } : parte, modo = tv || p.modo || 8;
+          const tv = (op.modoFijoDe && op.modoFijoDe(parte)) || tonoSiguiente(), pe = tv ? { ...parte, tonoFijo: true } : parte, modo = tv || p.modo || 8;
           antifona(pe, parte.antifona, modo, true);
           salmo({ ...pe, nombre: parte.antifona ? '' : parte.nombre, sub: !!parte.antifona }, tv ? { ...p, modo } : p, parte.antifona, { entonarCada: true });
           antifona({ ...pe, nombre: '', sub: true }, parte.antifona, modo, false);
@@ -2639,6 +2988,55 @@ const Oficio = (() => {
       }
     }
     return out;
+  }
+  /** v2.42: la hora armada en el formato de salmodia-tutor (para cantarla con la voz clonada del usuario).
+      Partes: versiculo {quien, texto}, antifona {texto}, invitatorio/salmo/cantico/cantico_evangelico
+      {titulo, versiculos, gloria}, himno {titulo, estrofas}, lectura/preces/oracion/texto {titulo, parrafos},
+      padrenuestro, rubrica {texto}. */
+  function exportarHoraVoz(hora) {
+    const partes = [], lim = (t) => (t || '').replace(/\r/g, '');
+    const versos = (t) => lim(t).split('\n').map(x => x.trim()).filter(x => x && !/^\(.*\)$/.test(x));
+    const vr = (t) => {
+      for (const l of versos(t)) {
+        if (/^Gloria al Padre/i.test(l)) { partes.push({ tipo: 'versiculo', quien: 'V', texto: 'Gloria al Padre, y al Hijo, y al Espíritu Santo.' });
+          partes.push({ tipo: 'versiculo', quien: 'R', texto: 'Como era en el principio, ahora y siempre, por los siglos de los siglos. Amén.' + (/Aleluya/i.test(l) ? ' Aleluya.' : '') }); continue; }
+        const quien = /^R\/?\.?\s/.test(l) || /^R\/\./.test(l) ? 'R' : 'V';
+        partes.push({ tipo: 'versiculo', quien, texto: l.replace(/^[VR]\/?\.\s*/, '').replace(/\s*\*\s*/g, ' ') });
+      }
+    };
+    const ant = (t, numero) => { if (t) partes.push({ tipo: 'antifona', numero: numero || null, texto: lim(t).replace(/\s+/g, ' ').trim() }); };
+    const salmo = (tipo, p, gloria = true) => partes.push({ tipo, titulo: [p.titulo, p.notas && !/sin Gloria/.test(p.notas) ? p.notas : ''].filter(Boolean).join(' · '), versiculos: versos(p.texto), gloria: gloria && !/sin Gloria/i.test(p.notas || '') });
+    for (const parte of hora.partes) {
+      const p = parte.piezas[0];
+      if (!p && parte.canto !== 'invitatorio') continue;
+      if (parte.nombre) partes.push({ tipo: 'rubrica', texto: parte.nombre.toUpperCase() });
+      switch (parte.canto) {
+        case 'versiculo': case 'fin': vr(p.texto); break;
+        case 'responsorio':                                    // como lo canta la app: respuesta completa, versículo, mitad, Gloria
+          for (const f of filasResponsorio(p.texto)) {
+            const t = f.frases.flatMap(x => x.sils).map(x => x.txt + (x.finPalabra ? ' ' : '')).join('').replace(/\s+/g, ' ').trim();
+            if (t) partes.push({ tipo: 'versiculo', quien: f.voz === 'todos' ? 'R' : 'V', texto: t });
+          } break;
+        case 'invitatorio': if (!p) break; ant(parte.antifona); salmo('invitatorio', p); ant(parte.antifona); break;
+        case 'himno': case 'mariana':
+          partes.push({ tipo: 'himno', titulo: p.titulo || parte.nombre || 'Himno', estrofas: lim(p.texto).split(/\n\s*\n/).map(e => e.split('\n').map(x => x.trim()).filter(Boolean)).filter(e => e.length) }); break;
+        case 'salmodia':
+          parte.piezas.forEach((sp, k) => {
+            const a = parte.antifonaUnica || (parte.antPropias && parte.antPropias[k + 1]) || (parte.pascua ? (sp.antifona_pascual || (sp.antifona ? sp.antifona.replace(/\.?$/, '. Aleluya.') : null)) : sp.antifona);
+            if (!parte.antifonaUnica || k === 0) ant(a, String(k + 1));
+            salmo(/c[aá]ntico/i.test(sp.tipo || sp.titulo || '') ? 'cantico' : 'salmo', sp);
+            if (!parte.antifonaUnica || k === parte.piezas.length - 1) ant(a);
+          }); break;
+        case 'antifonaSola': ant(parte.antifona); break;
+        case 'evangelico': ant(parte.antifona); salmo('cantico_evangelico', p); ant(parte.antifona); break;
+        case 'lectura': partes.push({ tipo: 'lectura', titulo: [parte.seccion || parte.nombre, p.notas].filter(Boolean).join(' '), parrafos: lim(p.texto).split(/\n\s*\n/).map(x => x.replace(/\s+/g, ' ').trim()).filter(Boolean) }); break;
+        case 'preces': partes.push({ tipo: 'preces', titulo: 'PRECES', parrafos: versos(p.texto) }); break;
+        case 'padrenuestro': partes.push({ tipo: 'padrenuestro', titulo: 'Padre nuestro' }); break;
+        case 'oracion': partes.push({ tipo: 'oracion', titulo: 'ORACIÓN', parrafos: [((hora.hora === 'Completas' || /^Oremos/.test(p.texto)) ? '' : 'Oremos. ') + lim(p.texto).replace(/\s+/g, ' ').trim() + ' Amén.'] }); break;
+        default: partes.push({ tipo: 'texto', titulo: parte.nombre || '', parrafos: lim(p.texto).split(/\n\s*\n/).map(x => x.replace(/\s+/g, ' ').trim()).filter(Boolean) });
+      }
+    }
+    return { fuente: 'Cantus Benedictinus Hispánicus', fecha: hora.fecha || null, hora: hora.hora, titulo: hora.titulo, celebracion: hora.celebracion || null, partes };
   }
   /** Estrofas de los salmos invitatorios según la Liturgia de las Horas (número de versos de cada estrofa).
       Si el texto trae líneas en blanco, se respetan; si no se reconoce, de dos en dos versos. */
@@ -2665,7 +3063,7 @@ const Oficio = (() => {
     return { eventos: ev, acordes: ac, duracion: t, tipo: 'oficio' };
   }
 
-  return { calendario, describir, hitos, pascua, armar, iVisperasDe, conCalendarioOSB, CALENDARIO_OSB, armarBenedictino, HORAS_OSB, DESCRIPCION_OSB, ESQUEMA_A, indiceSalmos, santoDelDia, conSanto, bloques, unir, HORAS, DESCRIPCION, PARTES, ROM, DIAS, GLORIA, manana };
+  return { exportarHoraVoz, calendario, describir, hitos, pascua, armar, iVisperasDe, conCalendarioOSB, CALENDARIO_OSB, armarBenedictino, HORAS_OSB, DESCRIPCION_OSB, ESQUEMA_A, indiceSalmos, santoDelDia, conSanto, bloques, unir, HORAS, DESCRIPCION, PARTES, ROM, DIAS, GLORIA, manana };
 })();
 if (typeof module !== 'undefined') module.exports = Oficio;
 
@@ -3495,7 +3893,7 @@ const EJEMPLOS = [
 ];
 const API = { activo: false };
 const CELULAR = true;            // la misma página sirve al PC (servidor.py) y al celular (sw.js con la base en el teléfono)
-const VERSION_APP = '2.41.0';
+const VERSION_APP = '2.51.0';
 let piezas = [...EJEMPLOS];
 let actual = piezas[0];
 
@@ -4302,14 +4700,25 @@ function antMelodia(texto) {
   return mapaAnt.get(normAnt(texto)) || mapaAnt.get(normAnt((texto || '').replace(/\s*Aleluya[.,!]*\s*$/i, ''))) || null;
 }
 /* Perfil tonal de una grabación (v2.33): modo y nota de recitación de cada parte. «ol» = solo en el Oficio de lectura. */
-function perfilDe(parte) {
+function perfilDe(parte) {             // v2.45: una pieza de la salmodia puede llevar su propia nota de recitación
+  const e = perfilBase(parte);
+  return e && parte && parte.tenorPieza ? { ...e, tenor: parte.tenorPieza } : e;
+}
+function perfilBase(parte) {
   if (!A.perfil_tonal || !parte) return null;
   const [id, alcance] = A.perfil_tonal.split(':'), P = M.PERFILES[id]; if (!P) return null;
   const hora = (OF.armada && OF.armada.hora) || OF.hora;
   // grabaciones de una hora concreta (Completas, 10-XI-2026): mandan en esa hora; lo que no esté en ellas sigue el perfil elegido
   const k = parte.perfilId || parte.id;
   // exacto: altura y velocidad de la grabación (sin el ajuste de semitonos ni la velocidad elegida)
-  for (const Q of Object.values(M.PERFILES)) if (Q.hora && Q.hora === hora && Q.partes[k]) return { ...Q.partes[k], exacto: true };
+  // v2.46: una grabación puede valer solo para ciertos días (Completas del sábado y del domingo); esas mandan sobre las de cualquier día
+  const dia = OF.armada && OF.armada.cal ? OF.armada.cal.diaIdx : null;
+  // v2.49: también por tiempo (Cuaresma / resto del año) y por I o II Vísperas; manda la grabación más específica
+  const tiempo = OF.armada && OF.armada.cal ? OF.armada.cal.tiempo : null, hd = OF.armada && OF.armada.horaDatos;
+  const sal = OF.armada && OF.armada.cal ? OF.armada.cal.salterio : null;   // v2.51: también por semana del salterio
+  const esp = (Q) => (Q.dias ? 1 : 0) + (Q.tiempos ? 1 : 0) + (Q.horaDatos ? 1 : 0) + (Q.salterio ? 1 : 0);
+  const deLaHora = Object.values(M.PERFILES).filter(Q => Q.hora && Q.hora === hora && (!Q.dias || Q.dias.includes(dia)) && (!Q.tiempos || Q.tiempos.includes(tiempo)) && (!Q.horaDatos || Q.horaDatos === hd) && (!Q.salterio || Q.salterio.includes(sal))).sort((a, b) => esp(b) - esp(a));
+  for (const Q of deLaHora) if (Q.partes[k]) return { ...Q.partes[k], exacto: true };
   // partes que son iguales en todas las horas (la invocación «Dios mío, ven en mi auxilio»): como la grabación que las tiene
   if (hora !== 'Oficio de lectura') for (const Q of Object.values(M.PERFILES)) if (Q.paraTodas && Q.paraTodas.includes(k) && Q.partes[k]) return { ...Q.partes[k], exacto: true };
   if (alcance === 'ol' && !(hora === 'Oficio de lectura' || parte.hora === 'Invitatorio' || /^inv/.test(parte.id || ''))) return null;
@@ -4325,7 +4734,7 @@ function despPerfil(m, e) {            // nota de recitación con la clase de al
 function opOficio() {
   return { silaba: silabaUso(), nivel: A.nivel, alternar: A.alt, cantor: A.cantor, melodia: melodiaPara, antMelodia,
     modoDe: (parte, m) => { const e = perfilDe(parte); return e && e.modo ? e.modo : m; },
-    perfil: perfilDe, variarTonos: () => !!A.perfil_tonal, metrica: () => metricaModelo(),
+    perfil: perfilDe, variarTonos: () => !!A.perfil_tonal, tonoPieza: (parte, k) => { const e = perfilBase(parte); return e && e.tonos ? e.tonos[k % e.tonos.length] : null; }, modoFijoDe: (parte) => { const e = perfilDe(parte); return e && e.fijo && e.modo ? e.modo : null; }, metrica: () => metricaModelo(),
     silabaDe: (parte) => { const e = perfilDe(parte); return e && e.silaba ? e.silaba * (e.exacto ? silabaUso() / A.silaba : silabaUso() / 0.30) : null; },   // exacto: la velocidad de la grabación (solo la guía de aprendiz la hace más lenta)
     estiloDe: (parte, k) => { const e = perfilDe(parte); return e ? (k === 'gloria' ? e.estiloGloria || e.estilo : e.estilo) || null : null; },
     desp: (m, parte) => { const e = perfilDe(parte); return e && e.tenor ? despPerfil(m, e) : M.desplazamiento(m, A.tesitura, A.pref) + A.ajuste; },
@@ -4380,10 +4789,11 @@ function renderBloque(b, bi, cont, pref = 'ob') {
   const op = opOficio();
   const caja = document.createElement('div'); caja.className = 'bloque' + (b.tipo === 'antifona' ? ' antifona' : ''); caja.id = pref + bi;
   if (pref === 'ob' && b.tl && b.tl.eventos.length && piezaDeBloque(b) && API.activo) {
-    const bar = document.createElement('div'); bar.className = 'mi-canto'; bar.dataset.clave = claveBloque(b);
+    const bar = document.createElement('div'); bar.className = 'mi-canto'; bar.dataset.clave = claveBloque(b); bar.dataset.bi = bi;
     const bg = document.createElement('button'); bg.type = 'button'; bg.className = 'b-grabar';
-    bg.textContent = MIS.has(bar.dataset.clave) ? '♪ Con mi grabación · cambiar' : '● Grabar mi canto';
-    bg.classList.toggle('tiene', MIS.has(bar.dataset.clave)); bg.onclick = () => abrirGrabador(bi);
+    const gmB = !MIS.has(bar.dataset.clave) && grabacionMonjes(b, bi);
+    bg.textContent = MIS.has(bar.dataset.clave) ? '♪ Con mi grabación · cambiar' : gmB ? '♪ Con los monjes · grabar el mío' : '● Grabar mi canto';
+    bg.classList.toggle('tiene', MIS.has(bar.dataset.clave) || !!gmB); bg.onclick = () => abrirGrabador(bi);
     const ba = document.createElement('button'); ba.type = 'button'; ba.textContent = '✎ Aprender esta parte'; ba.onclick = () => abrirAprender(bi);
     bar.append(ba, bg); caja.appendChild(bar);
   }
@@ -4561,6 +4971,28 @@ window.__cantusDia = { siguiente: () => { detener(); siguienteHoraDia(); }, esta
    y el oficio la usa en lugar de la voz sintética siempre que esa parte (mismo texto) aparezca. Se guarda como audio
    de referencia de la pieza, con origen «mi-canto:<clave del texto>». */
 const MIS = new Map();                          // clave -> { id, pieza_id }
+/* v2.48: grabaciones reales de los monjes para las partes de texto fijo (paquete personal «Grabaciones de los monjes»):
+   invocación inicial de cada hora, y en Completas el responsorio «En tus manos» y el Nunc dimittis con su antífona.
+   Clave en el campo motor: «monjes:<parte>:<hora>:<cuaresma|resto>[:sab|dom]». La grabación propia («Mi canto») manda. */
+const MONJES = new Map();                       // motor -> { id, pieza_id }
+function grabacionMonjes(b, i) {
+  if (!MONJES.size || !b || !b.parte || b.parte.sub || !OF.armada || b.tipo === 'falta' || !b.tl || !(b.tl.eventos || []).length) return null;
+  const hora = OF.armada.hora, cal = OF.armada.cal || {}, t = cal.tiempo || '', cua = /Cuaresma|Semana Santa/.test(t) ? 'cuaresma' : 'resto';
+  // día: «i» en las I Vísperas, «dom» el domingo, «sab» el sábado, «feria» los demás días
+  const dia = hora === 'Vísperas' && OF.armada.horaDatos === 'I Vísperas' ? 'i' : cal.diaIdx === 0 ? 'dom' : cal.diaIdx === 6 ? 'sab' : 'feria';
+  const busca = (...ks) => { for (const k of ks) if (MONJES.has(k)) return MONJES.get(k); return null; };
+  if (b.parte.id === 'intro' && i === OF.bloques.findIndex(x => x.parte && x.parte.id === 'intro')) {
+    const g = busca(`monjes:intro:${hora}:${cua}:${dia}`, `monjes:intro:${hora}:${cua}`, hora === 'Completas' ? `monjes:intro:Completas:${cua}:dom` : ''); return g && { ...g, n: 1 };
+  }
+  if (hora !== 'Completas' || t === 'Pascua' || t === 'Semana Santa') return null;     // en Pascua llevan aleluya; el Triduo tiene otra antífona
+  const d2 = dia === 'sab' ? 'sab' : 'dom';                 // si no hay grabación de entre semana, la del domingo
+  if (b.parte.id === 'resp') { const g = busca(`monjes:resp:Completas:${cua}:${dia}`, `monjes:resp:Completas:${cua}:${d2}`, `monjes:resp:Completas:${cua}:dom`); return g && { ...g, n: 1 }; }
+  if (b.parte.id === 'evang' && b.tipo === 'antifona' && !b.cierre) {
+    const n = OF.bloques.slice(i).findIndex((x, k) => k > 0 && x.parte && x.parte.id === 'evang' && x.tipo === 'antifona') + 1;   // antífona + cántico + antífona
+    const g = busca(`monjes:nunc:Completas:${cua}:${dia}`, `monjes:nunc:Completas:${cua}:${d2}`, `monjes:nunc:Completas:${cua}:dom`); return g && n > 1 ? { ...g, n } : null;
+  }
+  return null;
+}
 const misPorPieza = new Map();                  // pieza_id -> lista ya consultada
 function textoBloque(b) { return (b.tl && b.tl.eventos || []).filter(e => e.sil && e.primera !== false && !e.tono).map(e => e.sil.txt).join(' '); }
 function claveBloque(b) {
@@ -4579,9 +5011,14 @@ async function cargarMisCantos(forzar) {
       l.filter(a => (a.motor || '').startsWith('mi-canto:')).forEach(a => { if (!MIS.has(a.motor)) MIS.set(a.motor, { id: a.id, pieza_id: id }); });
     } catch (e) {}
   }
+  const pm = piezas.find(x => x.origen === 'monjes:partes-fijas');
+  if (pm && pm.id && (!misPorPieza.has(pm.id) || forzar)) {
+    try { const l = await api('piezas/' + pm.id + '/audios'); misPorPieza.set(pm.id, l); MONJES.clear();
+      l.filter(a => (a.motor || '').startsWith('monjes:')).forEach(a => MONJES.set(a.motor, { id: a.id, pieza_id: pm.id })); } catch (e) {}
+  }
   document.querySelectorAll('.mi-canto').forEach(bar => {
-    const bt = bar.querySelector('.b-grabar'), t = MIS.has(bar.dataset.clave);
-    bt.textContent = t ? '♪ Con mi grabación · cambiar' : '● Grabar mi canto'; bt.classList.toggle('tiene', t);
+    const bt = bar.querySelector('.b-grabar'), t = MIS.has(bar.dataset.clave), bi = +(bar.dataset.bi || -1), gm = !t && bi >= 0 && grabacionMonjes(OF.bloques[bi], bi);
+    bt.textContent = t ? '♪ Con mi grabación · cambiar' : gm ? '♪ Con los monjes · grabar el mío' : '● Grabar mi canto'; bt.classList.toggle('tiene', t || !!gm);
   });
 }
 const bufGrab = new Map();
@@ -4601,7 +5038,14 @@ async function tocarGrabacion(b, i, mio, alTerminar, opc = {}) {
   catch (e) { toast('No pude leer tu grabación de esta parte; la canta la app.'); MIS.delete(claveBloque(b)); if (!opc.prefijo) tocarBloque(i); return; }
   audio(); const src = ctx.createBufferSource(); src.buffer = buf; const g = ctx.createGain(); g.gain.value = 1; src.connect(g); g.connect(ctx.destination);
   nodos.push(src, g); const t0 = ctx.currentTime + 0.1; src.start(t0);
-  const ev = b.tl.eventos, e0 = ev[0].t, e1 = ev[ev.length - 1].t + ev[ev.length - 1].d, [s0, s1] = bordesSonido(buf), k = (s1 - s0) / Math.max(0.1, e1 - e0);
+  // una grabación puede abarcar varios bloques seguidos (antífona + cántico + antífona): la letra se resalta en cada uno
+  const nb = Math.max(1, mio.n || 1), ev = []; let off = 0;
+  for (let j = 0; j < nb && OF.bloques[i + j]; j++) {
+    const bj = j === 0 ? b : OF.bloques[i + j], ej = (bj.tl && bj.tl.eventos) || []; if (!ej.length) continue;
+    const a0 = ej[0].t; ej.forEach(e => ev.push({ ...e, t: e.t - a0 + off, pref: j === 0 ? null : (opc.prefijo ? opc.prefijo.replace(/\d+$/, '') : 'ob') + (i + j) }));
+    off = ev[ev.length - 1].t + ev[ev.length - 1].d + 0.8;
+  }
+  const e0 = ev[0].t, e1 = ev[ev.length - 1].t + ev[ev.length - 1].d, [s0, s1] = bordesSonido(buf), k = (s1 - s0) / Math.max(0.1, e1 - e0);
   const pref = opc.prefijo || ('ob' + i), raiz = opc.raiz || document; let ie = -1;
   clearInterval(OF.intGrab);
   OF.intGrab = setInterval(() => {
@@ -4609,9 +5053,10 @@ async function tocarGrabacion(b, i, mio, alTerminar, opc = {}) {
     while (ie + 1 < ev.length && ev[ie + 1].t <= el) {
       ie++; const e = ev[ie]; if (e.tono) continue; const vr = e.versoReal ?? e.verso;
       raiz.querySelectorAll('.sil.activa').forEach(x => x.classList.remove('activa'));
-      const sp = raiz.querySelector('#' + CSS.escape(`${pref}-${vr}-${e.parte}-${e.idx}`)); if (sp) sp.classList.add('activa');
+      const pf = e.pref || pref; if (e.pref && !opc.prefijo) marcarBloque(+e.pref.replace(/^\D+/, ''));
+      const sp = raiz.querySelector('#' + CSS.escape(`${pf}-${vr}-${e.parte}-${e.idx}`)); if (sp) sp.classList.add('activa');
       raiz.querySelectorAll('.verso.actual').forEach(x => x.classList.remove('actual'));
-      const fv = raiz.querySelector('#' + CSS.escape(`${pref}-v${vr}`)); if (fv) fv.classList.add('actual');
+      const fv = raiz.querySelector('#' + CSS.escape(`${pf}-v${vr}`)); if (fv) fv.classList.add('actual');
     }
   }, 40);
   src.onended = () => { clearInterval(OF.intGrab); raiz.querySelectorAll('.sil.activa,.verso.actual').forEach(x => x.classList.remove('activa', 'actual')); if (alTerminar) alTerminar(); };
@@ -4721,6 +5166,81 @@ function abrirGrabador(bi) {
     } catch (e) { est.textContent = 'No se pudo guardar: ' + e.message; }
   };
 }
+/* v2.43: motor de voz externo (ACE Studio, Synthesizer V, OpenUtau). Cantus conserva toda la
+   estructura (calendario, Ordo, textos, tonos, métrica monástica) y exporta cada parte cantada como MIDI
+   con su letra; el motor la canta y los audios vuelven a Cantus como «Mi canto» de esa parte. El nombre de
+   cada archivo lleva la clave de la parte (__clave), así el regreso es automático. */
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xffffffff; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+function zipSimple(archivos) {                 // ZIP sin compresión (método 0): [{nombre, datos: Uint8Array}]
+  const enc = new TextEncoder(), partes = [], central = []; let off = 0;
+  const u16 = (v) => [v & 255, (v >>> 8) & 255], u32 = (v) => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+  for (const f of archivos) {
+    const nom = enc.encode(f.nombre), c = crc32(f.datos), n = f.datos.length;
+    const loc = new Uint8Array([0x50, 0x4b, 3, 4, ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(c), ...u32(n), ...u32(n), ...u16(nom.length), ...u16(0)]);
+    partes.push(loc, nom, f.datos);
+    central.push(new Uint8Array([0x50, 0x4b, 1, 2, ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(c), ...u32(n), ...u32(n), ...u16(nom.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), nom);
+    off += loc.length + nom.length + n;
+  }
+  const tamC = central.reduce((a, x) => a + x.length, 0);
+  const fin = new Uint8Array([0x50, 0x4b, 5, 6, ...u16(0), ...u16(0), ...u16(archivos.length), ...u16(archivos.length), ...u32(tamC), ...u32(off), ...u16(0)]);
+  const todo = [...partes, ...central, fin], total = todo.reduce((a, x) => a + x.length, 0), out = new Uint8Array(total); let p = 0;
+  for (const x of todo) { out.set(x, p); p += x.length; } return out;
+}
+function textoLeido(b) { return b.filas.map(f => (f.frases || []).flatMap(x => x.sils).map(x => x.txt + (x.finPalabra ? ' ' : '')).join('')).join('\n').replace(/[ \t]+/g, ' ').trim(); }
+$('of-motor-exp').onclick = () => {
+  if (!OF.bloques || !OF.bloques.length) return toast('Elige primero una hora.');
+  const prog = $('of-motor').value, enc = new TextEncoder(), arch = [], lista = ['orden;parte;tipo;archivo;texto'];
+  let nC = 0, nL = 0;
+  OF.bloques.forEach((b, i) => {
+    if (!b.tl || !b.tl.eventos.length || !piezaDeBloque(b)) return;
+    const clave = claveBloque(b).replace('mi-canto:', ''), nombre = String(i + 1).padStart(3, '0') + '_' + nombreArchivo((b.parte.nombre || b.tipo || 'parte')).slice(0, 30) + '__' + clave;
+    if (esLeida(b) || b.tipo === 'recitado' && /lectura|oracion|preces/.test(b.parte.canto || '')) {
+      arch.push({ nombre: 'leidas/' + nombre + '.txt', datos: enc.encode(textoLeido(b)) }); nL++;
+      lista.push([i + 1, b.parte.nombre || '', 'leída', 'leidas/' + nombre + '.txt', textoLeido(b).slice(0, 80).replace(/;/g, ',')].join(';'));
+    } else {
+      arch.push({ nombre: 'cantadas/' + nombre + '.mid', datos: M.exportarMidiCanto(b.tl, OF.armada.titulo + ' ' + (b.parte.nombre || ''), { programa: prog }) }); nC++;
+      lista.push([i + 1, b.parte.nombre || '', b.tipo, 'cantadas/' + nombre + '.mid', textoBloque(b).slice(0, 80).replace(/;/g, ',')].join(';'));
+    }
+  });
+  const leeme = ['Cantus Benedictinus Hispánicus: ' + OF.armada.titulo + ' (' + OF.fecha + ')', '',
+    'cantadas/: una parte por archivo MIDI, con la letra en cada nota, el tono y el ritmo monástico de Cantus.',
+    '  ' + ({ ace: 'ACE Studio: arrastra el MIDI a una pista de tu voz; «-» prolonga la sílaba anterior.', synthv: 'Synthesizer V: Archivo > Importar; la palabra va en su primera nota, «+» en las demás sílabas y «-» en los melismas.', openutau: 'OpenUtau: arrastra el MIDI; elige el fonemizador en español; «+» prolonga la sílaba.' })[prog],
+    '  Exporta cada parte como WAV o MP3 CON EL MISMO NOMBRE (cambia solo la extensión).',
+    'leidas/: el texto de las partes que se leen (para ElevenLabs u otra voz hablada): guarda el audio con el mismo nombre.',
+    '', 'Después, en Cantus, abre esta misma hora y pulsa «2 · Importar los cantos del motor de voz» y elige todos los audios:',
+    'cada uno vuelve a su parte por la clave del nombre (__…) y queda como «Mi canto».'].join('\r\n');
+  arch.push({ nombre: 'LEEME.txt', datos: enc.encode(leeme) }, { nombre: 'partes.csv', datos: enc.encode('﻿' + lista.join('\r\n')) });
+  descargarBytes(zipSimple(arch), 'motor_voz_' + OF.fecha + '_' + nombreArchivo(OF.armada.hora || 'hora') + '.zip', 'application/zip');
+  toast(`Exportadas ${nC} partes cantadas y ${nL} leídas. Mira LEEME.txt dentro del .zip.`);
+};
+$('of-motor-imp').onclick = () => { if (!OF.bloques || !OF.bloques.length) return toast('Abre primero la hora que exportaste.'); $('of-motor-arch').click(); };
+$('of-motor-arch').onchange = async () => {
+  const fs = [...$('of-motor-arch').files]; $('of-motor-arch').value = ''; if (!fs.length) return;
+  const porClave = new Map(); OF.bloques.forEach(b => { if (b.tl && b.tl.eventos.length && piezaDeBloque(b)) porClave.set(claveBloque(b), b); });
+  let ok = 0, sin = [], err = 0;
+  for (const f of fs) {
+    const m = f.name.match(/__([a-z0-9]+)(?:_[^.]*)?\.[^.]+$/i), clave = m && 'mi-canto:' + m[1].toLowerCase(), b = clave && porClave.get(clave);
+    if (!b) { sin.push(f.name); continue; }
+    const pieza = piezaDeBloque(b), viejo = MIS.get(clave);
+    try {
+      if (viejo) { try { await api('audios/' + viejo.id, { method: 'DELETE' }); } catch (e) {} bufGrab.delete(viejo.id); }
+      const r = await fetch('api/piezas/' + pieza.id + '/audios', { method: 'POST', body: f, headers: { 'Content-Type': f.type || 'application/octet-stream',
+        'X-Nombre': encodeURIComponent(f.name), 'X-Titulo': encodeURIComponent('Motor de voz — ' + (b.parte.nombre || pieza.titulo || '')), 'X-Origen': encodeURIComponent(clave) } });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText);
+      MIS.set(clave, { id: j.id, pieza_id: pieza.id }); misPorPieza.delete(pieza.id); ok++;
+    } catch (e) { err++; }
+  }
+  renderOficio();
+  toast(`Importados ${ok} cantos` + (sin.length ? `; ${sin.length} no son de esta hora (ábrela y vuelve a importarlos)` : '') + (err ? `; ${err} con error` : '') + '.');
+};
+$('of-mivoz').onclick = () => {
+  if (!OF.armada) return toast('Elige primero una hora.');
+  const x = O.exportarHoraVoz(OF.armada); x.fecha = OF.fecha;
+  const nom = 'hora_' + OF.fecha + '_' + nombreArchivo(OF.armada.hora || 'hora') + '.json';
+  descargarBytes(new TextEncoder().encode(JSON.stringify(x, null, 1)), nom, 'application/json');
+  toast('Guardado ' + nom + ' en Descargas. Cántalo con tu voz: rehacer_laudes.ps1 -Hora (ruta del archivo).');
+};
 $('of-aprender').onclick = () => { if (!OF.bloques || !OF.bloques.length) return toast('Elige primero una hora.'); abrirAprender(0); };
 $('of-midi-ou').onclick = () => { const tl = O.unir(OF.bloques); if (!tl.eventos.length) return toast('Esta hora aún no tiene partes cantables.'); midiCanto(tl, OF.armada.titulo + ' ' + OF.fecha, 'openutau'); };
 $('of-midi-sv').onclick = () => { const tl = O.unir(OF.bloques); if (!tl.eventos.length) return toast('Esta hora aún no tiene partes cantables.'); midiCanto(tl, OF.armada.titulo + ' ' + OF.fecha, 'synthv'); };
@@ -4799,7 +5319,7 @@ function abrirAprender(bi, enCadena) {
   $('a-ant').onclick = () => abrirAprender(Math.max(0, bi - 1));
   $('a-sig').onclick = () => { if (bi + 1 < OF.bloques.length) abrirAprender(bi + 1); else { cerrarAprender(); toast('Terminaste la hora.'); } };
   $('a-oir').onclick = () => {
-    detener(); const mio = MIS.get(claveBloque(b));
+    detener(); const mio = MIS.get(claveBloque(b)) || grabacionMonjes(b, bi);
     if (mio) return tocarGrabacion(b, bi, mio, () => { est.textContent = 'Ahora tú: pulsa «Ahora yo».'; }, { prefijo: 'gob' + bi, raiz: tx });
     if (esLeida(b)) return leerBloque(b, bi, () => { est.textContent = 'Esta parte se lee: repítela en voz alta con la misma calma.'; });
     reproducir(b.tl, '', { prefijo: 'gob' + bi, sinRegistro: true, silencioso: true, alTerminar: () => { est.textContent = 'Ahora tú: pulsa «Ahora yo».'; } });
@@ -4882,6 +5402,8 @@ function leerBloque(b, i, alTerminar) {
     speechSynthesis.speak(u);
   });
 }
+// v2.44: silencio después de una parte, como en la grabación de la hora (p. ej. tras la lectura breve de Completas)
+function silencioTras(b) { const e = b && b.parte && !b.parte.sub ? perfilDe(b.parte) : null; return e && e.silencioDespues ? 1000 * e.silencioDespues : 0; }
 function tocarBloque(i) {
   while (i < OF.bloques.length && !(OF.bloques[i].tl && (OF.bloques[i].tl.eventos.length || OF.bloques[i].tipo === 'silencio'))) i++;
   if (i >= OF.bloques.length) { OF.cadena = false; marcarBloque(-1); toast('Fin de ' + OF.armada.titulo + '.'); registrarPractica('Oficio: ' + OF.armada.titulo, O.unir(OF.bloques).duracion);
@@ -4892,10 +5414,10 @@ function tocarBloque(i) {
     detener(); OF.cadena = true; marcarBloque(i); toast('Examen de conciencia: unos momentos de silencio.');
     OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(i + 1); }, 1000 * ((b.tl && b.tl.duracion) || 9)); return;   // la grabación de Completas: 3 s
   }
-  const mio = MIS.get(claveBloque(b));
-  if (mio) { detener(); OF.cadena = true; marcarBloque(i); tocarGrabacion(b, i, mio, () => { if (OF.cadena) OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(i + 1); }, b.tipo === 'antifona' ? 500 : 900); }); return; }
-  if (esLeida(b)) { detener(); OF.cadena = true; marcarBloque(i); leerBloque(b, i, () => { if (OF.cadena) OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(i + 1); }, 900); }); return; }
-  reproducir(b.tl, b.parte.nombre || '', { prefijo: 'ob' + i, sinRegistro: true, silencioso: !b.parte.nombre, alTerminar: () => { if (OF.cadena) OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(i + 1); }, b.tipo === 'antifona' ? (b.cierre && b.parte.canto === 'salmodia' ? 500 + 1000 * (+A.oficio_silencio || 0) : 500) : 1100); } });
+  const mio = MIS.get(claveBloque(b)) || grabacionMonjes(b, i), sig = i + ((mio && mio.n) || 1);
+  if (mio) { detener(); OF.cadena = true; marcarBloque(i); tocarGrabacion(b, i, mio, () => { if (OF.cadena) OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(sig); }, b.tipo === 'antifona' ? 500 : 900); }); return; }
+  if (esLeida(b)) { detener(); OF.cadena = true; marcarBloque(i); leerBloque(b, i, () => { if (OF.cadena) OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(i + 1); }, 900 + silencioTras(b)); }); return; }
+  reproducir(b.tl, b.parte.nombre || '', { prefijo: 'ob' + i, sinRegistro: true, silencioso: !b.parte.nombre, alTerminar: () => { if (OF.cadena) OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(i + 1); }, (b.tipo === 'antifona' ? (b.cierre && b.parte.canto === 'salmodia' ? 500 + 1000 * (+A.oficio_silencio || 0) : 500) : 1100) + silencioTras(b)); } });
   OF.cadena = true; marcarBloque(i);
 }
 $('vista-oficio').onclick = () => vista('oficio');
@@ -4929,7 +5451,9 @@ window.__cantusOficioWav = async (n, ajustes) => {                        // par
   return btoa(s);
 };
 window.__cantusCantar = (i) => cantarOficio(i); window.__cantusDetener = () => detener();   // para pruebas y para grabar ejemplos
-window.__cantusOficio = (fecha, hora) => { OF.fecha = fecha; OF.hora = hora; renderOficio(); return { titulo: OF.armada.titulo, partes: OF.armada.partes.map(p => ({ nombre: p.nombre, piezas: p.piezas.map(x => x.titulo), falta: p.falta, aviso: p.aviso })), bloques: OF.bloques.length, dur: O.unir(OF.bloques).duracion, lista: OF.bloques.map((b, i) => i + ':' + (b.tipo || '') + ':' + (b.parte && b.parte.nombre || '') + ':' + (b.tl ? Math.round(b.tl.duracion) : 0) + (b.melodica ? '♫' : '')), antifonas: OF.bloques.filter(b => b.tipo === 'antifona').map(b => (b.melodica ? '♫ ' : '  ') + (b.filas[0].frases ? b.filas[0].frases[0].sils.map(s => s.txt).join(' ') : b.filas[0].versos ? '(tono del modo)' : '')) }; };
+window.__cantusMonjes = async (fecha, hora) => { window.__cantusOficio(fecha, hora); await cargarMisCantos(true); return OF.bloques.map((b, i) => { const g = grabacionMonjes(b, i); return g ? i + ':' + b.tipo + ':' + (b.parte && b.parte.id) + ':' + [...MONJES].find(([k, v]) => v.id === g.id)[0] + ':n' + g.n : null; }).filter(Boolean); };
+window.__cantusPerfil = (fecha, hora, id) => { window.__cantusOficio(fecha, hora); const e = perfilDe({ id, perfilId: /^examen-/.test(id) ? id : undefined }); return e ? (e.tenor || '') + ' ' + (e.modo || '') + ' ' + (e.silencio || '') : null; };
+window.__cantusOficio = (fecha, hora) => { OF.fecha = fecha; OF.hora = hora; renderOficio(); return { titulo: OF.armada.titulo, partes: OF.armada.partes.map(p => ({ nombre: p.nombre, piezas: p.piezas.map(x => x.titulo), falta: p.falta, aviso: p.aviso })), bloques: OF.bloques.length, dur: O.unir(OF.bloques).duracion, modos: OF.bloques.map(b => (b.filas && b.filas[0] && b.filas[0].modo) || 0), sil: OF.bloques.map(silencioTras), lista: OF.bloques.map((b, i) => i + ':' + (b.tipo || '') + ':' + (b.parte && b.parte.nombre || '') + ':' + (b.tl ? Math.round(b.tl.duracion) : 0) + (b.melodica ? '♫' : '')), antifonas: OF.bloques.filter(b => b.tipo === 'antifona').map(b => (b.melodica ? '♫ ' : '  ') + (b.filas[0].frases ? b.filas[0].frases[0].sils.map(s => s.txt).join(' ') : b.filas[0].versos ? '(tono del modo)' : '')) }; };
 
 /* ================= Voz piloto ================= */
 let muestras = [], bancosCache = {};
