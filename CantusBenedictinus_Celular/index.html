@@ -301,7 +301,8 @@ fieldset.oficio legend{font:700 .8rem var(--f-ui);color:var(--rubrica);padding:0
       <div class="rotulo">Guía instrumental (para aprender)</div>
       <label class="campo" for="s-vozcanto">Voz del canto
         <select id="s-vozcanto">
-          <option value="organo">Grabaciones de los monjes; donde no hay, el instrumento guía toca la melodía (recomendado)</option>
+          <option value="suave">Solo el sonido suave del instrumento guía, en todo (recomendado)</option>
+          <option value="organo">Grabaciones de los monjes y mis grabaciones; donde no hay, el instrumento guía</option>
           <option value="sintetica">Voz sintética de la app</option>
         </select></label>
       <label class="campo" for="s-aprendiz">Al cantar
@@ -3652,8 +3653,8 @@ const Coro = (() => {
     if (op.instrumento === 'guia') {                                   // el órgano dobla la melodía (flautado suave) sobre un pedal tenue
       const fl = ctx.createGain(); fl.gain.value = 0.55; fl.connect(bus); nodos.push(fl);
       // como en el coro: el órgano sostiene la recitación y solo se mueve donde cambia la melodía (antes re-atacaba cada sílaba)
-      const res = recursosGuia(ctx, 'organo');
-      programar(ctx, t0, tramosContinuos(tl.eventos.filter(e => !e.tono)), x => x.t - 0.2, x => notaSostenida(ctx, fl, x, t0, 'organo', res, nodos), nodos);
+      const ig = op.guiaInstr === 'tarareo' ? 'tarareo' : 'organo', res = recursosGuia(ctx, ig);   // v2.53.5: también con el tarareo suave
+      programar(ctx, t0, tramosContinuos(tl.eventos.filter(e => !e.tono)), x => x.t - 0.2, x => notaSostenida(ctx, fl, x, t0, ig, res, nodos), nodos);
       const ped = ctx.createGain(); ped.gain.value = 0.35; ped.connect(bus); nodos.push(ped);     // pedal tenue, en la octava de la voz
       programar(ctx, t0, tl.acordes, a => a.t - 0.2, a => a.notas.slice(0, 1).forEach(m => nota(ctx, ped, m, t0 + a.t, a.d, 'organo', nodos, onda)), nodos);
     } else programar(ctx, t0, tl.acordes, a => a.t - 0.2, a => a.notas.forEach(m => nota(ctx, bus, m, t0 + a.t, a.d, op.instrumento, nodos, onda)), nodos);
@@ -3786,7 +3787,7 @@ const Coro = (() => {
       const ng = ctx.createGain(); ng.gain.value = 0.06; nz.connect(nb); nb.connect(ng); ng.connect(g); nz.start(t); nz.stop(fin + 1.2); soltar(nz, ng); nodos.push(nz, nb, ng);
       const b2 = base * 0.7, ent = x.desdeLigado ? 0.2 : 0.45, sal = x.ligado ? 0.22 : 0.9;   // v2.53.4: aún más suave
       g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(b2 * 0.45, t + ent * 0.5); g.gain.linearRampToValueAtTime(b2, t + ent);
-      acentos.forEach(e => { const ta = t0 + e.t; if (ta > t + ent) { g.gain.setTargetAtTime(b2 * 1.05, ta - 0.05, 0.15); g.gain.setTargetAtTime(b2, ta + Math.max(0.15, e.d * 0.6), 0.15); } });
+      acentos.forEach(e => { const ta = t0 + e.t; if (ta > t + ent) { g.gain.setTargetAtTime(b2 * 1.28, ta - 0.06, 0.09); g.gain.setTargetAtTime(b2 * 0.92, ta + Math.max(0.16, e.d * 0.7), 0.14); } });   // v2.54: acento perceptible (arsis), sin golpe
       if (x.ligado) { g.gain.setValueAtTime(b2, fin); g.gain.linearRampToValueAtTime(0, fin + sal); }
       else { g.gain.setTargetAtTime(b2 * 0.8, Math.max(t + ent, fin - 0.35), 0.18); g.gain.setTargetAtTime(0, fin, sal / 3); }
     } else {
@@ -3932,7 +3933,7 @@ const EJEMPLOS = [
 ];
 const API = { activo: false };
 const CELULAR = true;            // la misma página sirve al PC (servidor.py) y al celular (sw.js con la base en el teléfono)
-const VERSION_APP = '2.53.4';
+const VERSION_APP = '2.54.0';
 let piezas = [...EJEMPLOS];
 let actual = piezas[0];
 
@@ -3986,7 +3987,7 @@ async function detectarServidor() {
 
 /* ================= Ajustes ================= */
 let guiaForzada = false;                                              // el botón «Guía instrumental» la activa aunque el ajuste esté en «normal»
-const A = { modo: 8, tesitura: 'baritono', pref: 'blancas', ajuste: 0, silaba: 0.30, nivel: 1, instrumento: 'organo', vol: 0.3, timbre: 'abadia', acustica: 'abadia', cantor: true, voz: 'sintetica', oficio_inv: 'auto', oficio_hi: 'Sexta', oficio_mariana: '0', oficio_lect: 'bienal', oficio_santos: 'oblig', oficio_silencio: '0', oficio_orden: 'romano', dox: true, alt: true, ent: false, notas: true, mi_coro: '', ayuda: 'guia', voces_a: 6, voces_b: 6, natural: false, soplo: 'no', aprendiz: '', guia_instr: 'tarareo', bordon: true, guia_estilo: 'continuo', guia_tempo: 1.3, perfil_tonal: 'ol-20260308:todas', voz_clara: 'leidas', voz_canto: 'organo' };
+const A = { modo: 8, tesitura: 'baritono', pref: 'blancas', ajuste: 0, silaba: 0.30, nivel: 1, instrumento: 'organo', vol: 0.3, timbre: 'abadia', acustica: 'abadia', cantor: true, voz: 'sintetica', oficio_inv: 'auto', oficio_hi: 'Sexta', oficio_mariana: '0', oficio_lect: 'bienal', oficio_santos: 'oblig', oficio_silencio: '0', oficio_orden: 'romano', dox: true, alt: true, ent: false, notas: true, mi_coro: '', ayuda: 'guia', voces_a: 6, voces_b: 6, natural: false, soplo: 'no', aprendiz: '', guia_instr: 'tarareo', bordon: true, guia_estilo: 'continuo', guia_tempo: 1.3, perfil_tonal: 'ol-20260308:todas', voz_clara: 'leidas', voz_canto: 'suave' };
 function leerAjustes() {
   A.tesitura = $('s-tesitura').value; A.pref = $('s-pref').value; A.ajuste = +$('s-ajuste').value;
   A.silaba = +$('s-tempo').value; A.timbre = $('s-timbre').value; A.acustica = $('s-acustica').value; A.cantor = $('c-cantor').checked; A.nivel = +$('s-nivel').value; A.instrumento = $('s-instr').value; A.vol = +$('s-vol').value;
@@ -3998,14 +3999,18 @@ function leerAjustes() {
   $('q-A').textContent = 'Coro A · ' + (A.mi_coro === 'A' ? 'tú' : 'izquierda'); $('q-B').textContent = 'Coro B · ' + (A.mi_coro === 'B' ? 'tú' : 'derecha');
   $('v-ajuste').textContent = (A.ajuste > 0 ? '+' : '') + A.ajuste;
 }
+// v2.54: cambios de ajustes que se aplican una sola vez (aunque los ajustes se lean dos veces al abrir: del equipo y del servidor)
+const MIGRA = (() => { const m = { tarareo: true, suave: true }; try { m.tarareo = localStorage.getItem('cantus-tarareo') !== '1'; m.suave = localStorage.getItem('cantus-suave') !== '1'; } catch (e) {} return m; })();
+function cerrarMigracion() { if (!MIGRA.tarareo && !MIGRA.suave) return; try { localStorage.setItem('cantus-tarareo', '1'); localStorage.setItem('cantus-suave', '1'); } catch (e) {} leerAjustes(); guardarAjustes(); MIGRA.tarareo = MIGRA.suave = false; }
 function aplicarAjustes(c) {
   if (!c) return;
   const set = (id, v, chk) => { if (v !== undefined && v !== null) { if (chk) $(id).checked = !!(+v); else $(id).value = v; } };
   set('s-tesitura', c.tesitura); set('s-pref', c.pref); set('s-ajuste', c.ajuste); set('s-tempo', c.silaba);
   set('s-nivel', c.nivel); set('s-timbre', c.timbre); set('s-acustica', c.acustica); if (c.voz) A.voz = c.voz; set('c-cantor', c.cantor, 1); set('s-instr', c.instrumento); set('s-vol', c.vol);
   set('c-alt', c.alt, 1); set('c-notas', c.notas, 1);
-  set('s-micoro', c.mi_coro); set('s-ayuda', c.ayuda); set('s-vocesA', c.voces_a); set('s-vocesB', c.voces_b); set('c-natural', c.natural, 1); set('s-soplo', c.soplo); set('s-aprendiz', c.aprendiz); { let ya = false; try { ya = localStorage.getItem('cantus-tarareo') === '1'; localStorage.setItem('cantus-tarareo', '1'); } catch (e) {}
-    set('s-guiainstr', !ya && (!c.guia_instr || c.guia_instr === 'organo') ? 'tarareo' : c.guia_instr); }   // v2.53: una vez, el coro que tararea pasa a ser la guía set('c-bordon', c.bordon, 1); set('s-guiaestilo', c.guia_estilo); set('s-guiatempo', c.guia_tempo); set('s-vozcanto', c.voz_canto);
+  set('s-micoro', c.mi_coro); set('s-ayuda', c.ayuda); set('s-vocesA', c.voces_a); set('s-vocesB', c.voces_b); set('c-natural', c.natural, 1); set('s-soplo', c.soplo); set('s-aprendiz', c.aprendiz); { const ya = !MIGRA.tarareo;
+    set('s-guiainstr', !ya && (!c.guia_instr || c.guia_instr === 'organo') ? 'tarareo' : c.guia_instr); }   /* v2.53: una vez, el coro que tararea pasa a ser la guía */ set('c-bordon', c.bordon, 1); set('s-guiaestilo', c.guia_estilo); set('s-guiatempo', c.guia_tempo); { const ya2 = !MIGRA.suave;
+    set('s-vozcanto', !ya2 && (!c.voz_canto || c.voz_canto === 'organo') ? 'suave' : c.voz_canto); }   /* v2.54: una vez, todo con el sonido suave */
   if (c.oficio_inv) { A.oficio_inv = c.oficio_inv; $('of-inv').value = c.oficio_inv; }
   if (c.oficio_hi) { A.oficio_hi = c.oficio_hi; $('of-hi').value = c.oficio_hi; }
   if (c.oficio_lect) { A.oficio_lect = c.oficio_lect; $('of-lect').value = c.oficio_lect; }
@@ -5026,7 +5031,7 @@ const MAPAS_HORA = {
   'monjes:hora:Completas:resto:sab': { intro: 0, examen: 50.5, himno: 134.7, salmodia: 289.6, lectura: 568.0, resp: 609.3, evang: 669.8, oracion: 797.4, fin: 842, mariana: 850.3 },
 };
 function horaGrabada() {
-  if (!MONJES.size || !OF.armada || A.voz_canto === 'sintetica') return null;
+  if (!MONJES.size || !OF.armada || A.voz_canto === 'sintetica' || A.voz_canto === 'suave') return null;
   const hora = OF.armada.hora, cal = OF.armada.cal || {}, t = cal.tiempo || '';
   if (hora !== 'Completas' || t === 'Pascua' || t === 'Semana Santa') return null;
   const cua = t === 'Cuaresma' ? 'cuaresma' : 'resto', d = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'][cal.diaIdx];
@@ -5052,7 +5057,7 @@ async function tocarHoraGrabada(hg, i) {
   try { await au.play(); } catch (e) { toast('Pulsa de nuevo «Cantar» para empezar el audio.'); }
 }
 function grabacionMonjes(b, i) {
-  if (!MONJES.size || !b || !b.parte || b.parte.sub || !OF.armada || b.tipo === 'falta' || !b.tl || !(b.tl.eventos || []).length) return null;
+  if (A.voz_canto === 'suave' || !MONJES.size || !b || !b.parte || b.parte.sub || !OF.armada || b.tipo === 'falta' || !b.tl || !(b.tl.eventos || []).length) return null;
   const hora = OF.armada.hora, cal = OF.armada.cal || {}, t = cal.tiempo || '', cua = /Cuaresma|Semana Santa/.test(t) ? 'cuaresma' : 'resto';
   // día: «i» en las I Vísperas, «dom» el domingo, «sab» el sábado, «feria» los demás días
   const dia = hora === 'Vísperas' && OF.armada.horaDatos === 'I Vísperas' ? 'i' : cal.diaIdx === 0 ? 'dom' : cal.diaIdx === 6 ? 'sab' : 'feria';
@@ -5395,7 +5400,7 @@ function abrirAprender(bi, enCadena) {
   $('a-ant').onclick = () => abrirAprender(Math.max(0, bi - 1));
   $('a-sig').onclick = () => { if (bi + 1 < OF.bloques.length) abrirAprender(bi + 1); else { cerrarAprender(); toast('Terminaste la hora.'); } };
   $('a-oir').onclick = () => {
-    detener(); const mio = MIS.get(claveBloque(b)) || grabacionMonjes(b, bi);
+    detener(); const mio = A.voz_canto === 'suave' ? null : MIS.get(claveBloque(b)) || grabacionMonjes(b, bi);
     if (mio) return tocarGrabacion(b, bi, mio, () => { est.textContent = 'Ahora tú: pulsa «Ahora yo».'; }, { prefijo: 'gob' + bi, raiz: tx });
     if (esLeida(b)) return leerBloque(b, bi, () => { est.textContent = 'Esta parte se lee: repítela en voz alta con la misma calma.'; });
     reproducir(b.tl, '', { prefijo: 'gob' + bi, sinRegistro: true, silencioso: true, alTerminar: () => { est.textContent = 'Ahora tú: pulsa «Ahora yo».'; } });
@@ -5461,7 +5466,7 @@ function abrirAprender(bi, enCadena) {
    los cantos siguen cantados. Si el equipo no tiene voz española, se recitan como antes. */
 const LEIDAS = new Set(['lectura', 'oracion', 'preces', 'padrenuestro']);
 function esLeida(b) {
-  if (A.voz_clara === 'no' || !window.speechSynthesis || !vozES || b.tipo !== 'recitado' || !b.parte) return false;
+  if (A.voz_canto === 'suave' || A.voz_clara === 'no' || !window.speechSynthesis || !vozES || b.tipo !== 'recitado' || !b.parte) return false;
   return LEIDAS.has(b.parte.canto) || b.parte.perfilId === 'examen-inv' || b.parte.perfilId === 'examen-abs';
 }
 function leerBloque(b, i, alTerminar) {
@@ -5492,7 +5497,7 @@ function tocarBloque(i) {
     detener(); OF.cadena = true; marcarBloque(i); toast('Examen de conciencia: unos momentos de silencio.');
     OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(i + 1); }, 1000 * ((b.tl && b.tl.duracion) || 9)); return;   // la grabación de Completas: 3 s
   }
-  const mio = MIS.get(claveBloque(b)) || grabacionMonjes(b, i), sig = i + ((mio && mio.n) || 1);
+  const mio = A.voz_canto === 'suave' ? null : MIS.get(claveBloque(b)) || grabacionMonjes(b, i), sig = i + ((mio && mio.n) || 1);   // v2.54: «solo el sonido suave»: sin grabaciones
   if (mio) { detener(); OF.cadena = true; marcarBloque(i); tocarGrabacion(b, i, mio, () => { if (OF.cadena) OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(sig); }, b.tipo === 'antifona' ? 500 : 900); }); return; }
   if (esLeida(b)) { detener(); OF.cadena = true; marcarBloque(i); leerBloque(b, i, () => { if (OF.cadena) OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(i + 1); }, 900 + silencioTras(b)); }); return; }
   reproducir(b.tl, b.parte.nombre || '', { prefijo: 'ob' + i, sinRegistro: true, silencioso: !b.parte.nombre, alTerminar: () => { if (OF.cadena) OF.espera = setTimeout(() => { if (OF.cadena) tocarBloque(i + 1); }, (b.tipo === 'antifona' ? (b.cierre && b.parte.canto === 'salmodia' ? 500 + 1000 * (+A.oficio_silencio || 0) : 500) : 1100) + silencioTras(b)); } });
@@ -6011,6 +6016,7 @@ detectarServidor().then(() => {
   if (API.activo) { actual = piezas.find(p => ['Salmo', 'Cántico', 'Cántico evangélico', 'Himno'].includes(p.tipo)) || piezas[0]; $('s-modo').value = actual.modo; leerAjustes(); renderTodo(); }
   let v = null; try { v = localStorage.getItem('cantus-vista'); } catch (e) {}
   if (v === 'oficio' || (!v && API.activo && piezas.some(p => p.seccion))) vista('oficio');
+  cerrarMigracion();
 });
 })();
 </script>
