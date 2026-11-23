@@ -91,6 +91,18 @@ main{display:flex;flex-direction:column;gap:18px;min-width:0}
 .sil.activa .nota{color:var(--vela);font-weight:700}
 .sep{display:inline-block;width:.25em}
 .rub{color:var(--rubrica);font-weight:700;padding:0 .3em}
+/* v2.56: altura de cada sílaba respecto de la recitación: lo que sube va más cálido e intenso; lo que baja, más frío y tenue */
+.sil.sube1{color:#e8963a;font-weight:600}.sil.sube2{color:#ff6a2b;font-weight:800}
+.sil.baja1{color:#6f9fd0}.sil.baja2{color:#4f7fb8;opacity:.85}
+.sil.cad.sube1,.sil.cad.sube2{text-shadow:0 0 6px rgba(255,120,50,.35)}
+/* v2.56.1: como en el libro, también en el PC: la primera mitad del verso termina en «*» y la segunda va debajo con sangría;
+   cada verso separado del siguiente, con su pausa «‖» */
+.corte{display:block;height:.2em}
+.linea-v .h2-ini{padding-left:1.6em}
+.texto .verso,.bloque .verso{padding:4px 0 10px;border-bottom:1px dashed var(--linea)}
+.texto .verso:last-child,.bloque .verso:last-child{border-bottom:0}
+.pausa-v{color:var(--tinta-2);opacity:.6;font:600 .8rem var(--f-ui);padding-left:.5em;letter-spacing:.05em}
+
 .verso.actual .coro{color:var(--vela)}
 .leyenda{display:flex;flex-wrap:wrap;gap:6px 18px;font:.82rem var(--f-ui);color:var(--tinta-2)}
 .leyenda b{color:var(--tinta)}
@@ -227,6 +239,16 @@ body.modo-oficio #voces-panel, body.modo-oficio .pauta-caja{display:none}
 .parte select{padding:4px 6px;font-size:.85rem}
 fieldset.oficio{border:1px solid var(--linea);border-radius:var(--r);padding:10px;display:flex;flex-direction:column;gap:8px;margin:0}
 fieldset.oficio legend{font:700 .8rem var(--f-ui);color:var(--rubrica);padding:0 4px;letter-spacing:.06em;text-transform:uppercase}
+@media (max-width:700px){
+  /* en el celular: cada mitad del verso en su línea, sangría en la segunda y espacio entre versos (los cortes del canto se ven) */
+  .corte{display:block;height:.35em}
+  .linea-v .h2-ini{padding-left:1.2em}
+  .texto,.bloque{gap:22px}
+  .verso,.bloque .verso{grid-template-columns:minmax(0,1fr);gap:2px;padding-bottom:14px;border-bottom:1px dashed var(--linea)}
+  .coro{font-size:.72rem}
+  .linea-v,.bloque .linea-v{font-size:1.12rem;line-height:2.1}
+  .linea-v.con-notas,.bloque .linea-v.con-notas{line-height:2.7}
+}
 </style>
 
 <div class="app">
@@ -428,6 +450,7 @@ fieldset.oficio legend{font:700 .8rem var(--f-ui);color:var(--rubrica);padding:0
         <p class="nota-pie" style="margin-top:6px">En la Hora intermedia, quien reza las tres horas canta la salmodia del día en una de ellas y la complementaria (salmos graduales 119–127) en las otras dos (OGLH 81). El silencio después de cada salmo es el que recomienda la OGLH 202.</p>
       </details>
       <div class="of-estado" id="of-estado" aria-live="polite"></div>
+      <div class="leyenda" style="margin:4px 0 6px"><span><b style="text-decoration:underline;text-decoration-color:var(--rubrica)">Subrayado</b> tónica</span><span><b style="color:#ff6a2b">Naranja</b> sube, un poco más fuerte</span><span><b style="color:#6f9fd0">Azul</b> baja, más suave</span><span><b class="rub" style="padding:0">*</b> respirar · <b style="opacity:.6">‖</b> pausa del verso</span></div>
       <div class="of-partes" id="of-partes"></div>
     </section>
 
@@ -458,7 +481,8 @@ fieldset.oficio legend{font:700 .8rem var(--f-ui);color:var(--rubrica);padding:0
       <span><b style="text-decoration:underline;text-decoration-color:var(--rubrica)">Subrayado</b> sílaba tónica</span>
       <span><b style="color:var(--rubrica)">Rojo</b> cadencia (mediante y final)</span>
       <span><i>Cursiva</i> entonación del cantor</span>
-      <span><b class="rub" style="padding:0">*</b> respirar · <b class="rub" style="padding:0">†</b> flexa, bajar un tono sin respirar largo</span>
+      <span><b class="rub" style="padding:0">*</b> respirar · <b class="rub" style="padding:0">†</b> flexa, bajar un tono sin respirar largo · <b style="opacity:.6">‖</b> pausa al final del verso</span>
+      <span><b style="color:#ff6a2b">Naranja</b> la voz sube (más intenso: sube más, se canta un poco más fuerte) · <b style="color:#6f9fd0">Azul</b> la voz baja (más suave)</span>
     </div>
 
     <section class="panel" id="voces-panel" aria-label="Voces de referencia">
@@ -3698,7 +3722,10 @@ const Coro = (() => {
     const res = recursosGuia(ctx, instr);
     if (op.guiaEstilo !== 'silabas' || instr === 'tarareo' || instr === 'flauta') {
       // como en el coro: la nota se sostiene mientras la melodía no cambia; se mueve ligada y respira en las pausas
-      programar(ctx, t0, tramosContinuos(ev), x => x.t - 0.2, x => notaSostenida(ctx, bus, x, t0, instr, res, nodos), nodos);
+      // v2.56: dinámica por altura: lo que sube se toca un poco más fuerte, lo que baja más suave (la recitación es la referencia)
+      const cnt = {}; ev.forEach(e => cnt[e.midi] = (cnt[e.midi] || 0) + e.d); const ref = +Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0];
+      const trs = tramosContinuos(ev); trs.forEach(x => { x.ref = ref; });
+      programar(ctx, t0, trs, x => x.t - 0.2, x => notaSostenida(ctx, bus, x, t0, instr, res, nodos), nodos);
     } else {
     // dinámica: tónica fuerte, resto medio, última sílaba antes de una pausa más suave
     const vel = (e, j) => {
@@ -3789,7 +3816,8 @@ const Coro = (() => {
       const nz = ctx.createBufferSource(); nz.buffer = r.ruido; nz.loop = true;
       const nb = ctx.createBiquadFilter(); nb.type = 'bandpass'; nb.frequency.value = Math.min(1800, fs * 3); nb.Q.value = 1.2;
       const ng = ctx.createGain(); ng.gain.value = fl ? 0.018 : 0.06; nz.connect(nb); nb.connect(ng); ng.connect(g); nz.start(t); nz.stop(fin + 1.2); soltar(nz, ng); nodos.push(nz, nb, ng);
-      const b2 = base * 0.7, ent = x.desdeLigado ? 0.2 : 0.45, sal = x.ligado ? 0.22 : 0.9;   // v2.53.4: aún más suave
+      const alt = x.ref > 0 ? Math.max(0.75, Math.min(1.35, 1 + 0.08 * (x.midi - x.ref))) : 1;   // v2.56: sube = más fuerte, baja = más suave
+      const b2 = base * 0.7 * alt, ent = x.desdeLigado ? 0.2 : 0.45, sal = x.ligado ? 0.22 : 0.9;   // v2.53.4: aún más suave
       g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(b2 * 0.45, t + ent * 0.5); g.gain.linearRampToValueAtTime(b2, t + ent);
       acentos.forEach(e => { const ta = t0 + e.t; if (ta > t + ent) { g.gain.setTargetAtTime(b2 * 1.28, ta - 0.06, 0.09); g.gain.setTargetAtTime(b2 * 0.92, ta + Math.max(0.16, e.d * 0.7), 0.14); } });   // v2.54: acento perceptible (arsis), sin golpe
       if (x.ligado) { g.gain.setValueAtTime(b2, fin); g.gain.linearRampToValueAtTime(0, fin + sal); }
@@ -3939,7 +3967,7 @@ const EJEMPLOS = [
 ];
 const API = { activo: false };
 const CELULAR = true;            // la misma página sirve al PC (servidor.py) y al celular (sw.js con la base en el teléfono)
-const VERSION_APP = '2.55.1';
+const VERSION_APP = '2.56.1';
 let piezas = [...EJEMPLOS];
 let actual = piezas[0];
 
@@ -4199,8 +4227,11 @@ function renderTexto() {
     const lin = document.createElement('div'); lin.className = 'linea-v' + (A.notas ? ' con-notas' : '');
     let ultimaNota = '';
     const bem = M.prefiereBemoles([v.flex || [], v.h1 || [], v.h2 || []].flat().flatMap(s => (s.notas || []).map(m => m + sh)));
+    const refV = refAltura([v.flex || [], v.h1 || [], v.h2 || []].flat());
+    const corte = () => { const c = document.createElement('span'); c.className = 'corte'; lin.appendChild(c); };
     const pinta = (sils, parte) => sils.forEach((s, i) => {
       const sp = document.createElement('span'); sp.className = 'sil'; sp.id = `s-${vi}-${parte}-${i}`;
+      claseAltura(sp, s, refV); if (parte === 'h2' && i === 0 && v.h1.length) sp.classList.add('h2-ini');
       if (s.marca) sp.classList.add('ton');
       if (['acento', 'preparatoria', 'postonica'].includes(s.rol)) sp.classList.add('cad');
       if (s.rol === 'entonacion') sp.classList.add('ent');
@@ -4210,9 +4241,10 @@ function renderTexto() {
       lin.appendChild(sp);
       if (s.finPalabra) lin.appendChild(document.createTextNode(' ')); else { const g = document.createElement('span'); g.className = 'sep'; g.textContent = '-'; g.style.color = 'var(--linea)'; lin.appendChild(g); }
     });
-    if (v.flex) { pinta(v.flex, 'flex'); const r = document.createElement('span'); r.className = 'rub'; r.textContent = '†'; lin.appendChild(r); }
-    if (v.h1.length) { pinta(v.h1, 'h1'); if (!v.himno) { const r = document.createElement('span'); r.className = 'rub'; r.textContent = '*'; lin.appendChild(r); } }
+    if (v.flex) { pinta(v.flex, 'flex'); const r = document.createElement('span'); r.className = 'rub'; r.textContent = '†'; lin.appendChild(r); corte(); }
+    if (v.h1.length) { pinta(v.h1, 'h1'); if (!v.himno) { const r = document.createElement('span'); r.className = 'rub'; r.textContent = '*'; lin.appendChild(r); corte(); } }
     pinta(v.h2, 'h2');
+    if (v.h2.length) { const pz = document.createElement('span'); pz.className = 'pausa-v'; pz.textContent = '‖'; pz.title = 'pausa: fin del verso'; lin.appendChild(pz); }
     fila.append(coro, lin); cont.appendChild(fila);
   });
   const ant1 = antifonaDePieza(false);
@@ -4821,10 +4853,15 @@ function plantillaFalta(parte, ar) {
     semana: parte.id === 'salmodia' && !propio ? cal.salterio : null, ciclo: null, fecha: propio && /^\d/.test('') ? null : null, celebracion: propio ? cal.celebracion : null,
     tomo: cal.tomo, modo: 8, texto: '', antifona: null };
 }
-function renderSilabas(lin, sils, prefijo, vi, parte, sh, bemB) {
+// v2.56: color e intensidad por altura: diferencia con la nota de recitación (la más frecuente del verso)
+function refAltura(sils) { const c = {}; sils.forEach(s => (s.notas || []).forEach(m => c[m] = (c[m] || 0) + 1)); let r = null, mx = -1; for (const k in c) if (c[k] > mx) { mx = c[k]; r = +k; } return r; }
+function claseAltura(sp, s, ref) { if (ref == null || !s.notas || !s.notas.length) return; const d = Math.max(...s.notas) - ref, b = Math.min(...s.notas) - ref;
+  if (d >= 3) sp.classList.add('sube2'); else if (d >= 1) sp.classList.add('sube1'); else if (b <= -3) sp.classList.add('baja2'); else if (b <= -1) sp.classList.add('baja1'); }
+function renderSilabas(lin, sils, prefijo, vi, parte, sh, bemB, ref) {
   let ultima = ''; const bem = bemB != null ? bemB : M.prefiereBemoles(sils.flatMap(s => (s.notas || []).map(m => m + sh)));
   sils.forEach((s, i) => {
     const sp = document.createElement('span'); sp.className = 'sil'; sp.id = `${prefijo}-${vi}-${parte}-${i}`;
+    claseAltura(sp, s, ref != null ? ref : refAltura(sils));
     if (s.marca) sp.classList.add('ton');
     if (['acento', 'preparatoria', 'postonica'].includes(s.rol)) sp.classList.add('cad');
     if (s.rol === 'entonacion') sp.classList.add('ent');
@@ -4867,9 +4904,13 @@ function renderBloque(b, bi, cont, pref = 'ob') {
       else coro.textContent = A.alt ? 'Coro ' + v.coro : 'Todos';
       if (b.tipo !== 'antifona' && esMio(v.coro, vi === 0 && A.cantor && b.tipo !== 'himno' && !fila0.himno)) { fila.classList.add('mio'); coro.innerHTML += '<br><span class="tu">Tú</span>'; }
       const lin = document.createElement('div'); lin.className = 'linea-v' + (A.notas ? ' con-notas' : '');
-      if (v.flex) { renderSilabas(lin, v.flex, pref + bi, vi, 'flex', sh, bemB); const r = document.createElement('span'); r.className = 'rub'; r.textContent = '†'; lin.appendChild(r); }
-      if (v.h1 && v.h1.length) { renderSilabas(lin, v.h1, pref + bi, vi, 'h1', sh, bemB); if (!v.himno) { const r = document.createElement('span'); r.className = 'rub'; r.textContent = '*'; lin.appendChild(r); } }
-      renderSilabas(lin, v.h2 || [], pref + bi, vi, 'h2', sh, bemB);
+      const refV = refAltura([v.flex || [], v.h1 || [], v.h2 || []].flat());   // v2.56: altura respecto de la recitación del verso
+      const corte = () => { const c = document.createElement('span'); c.className = 'corte'; lin.appendChild(c); };
+      if (v.flex) { renderSilabas(lin, v.flex, pref + bi, vi, 'flex', sh, bemB, refV); const r = document.createElement('span'); r.className = 'rub'; r.textContent = '†'; lin.appendChild(r); corte(); }
+      if (v.h1 && v.h1.length) { renderSilabas(lin, v.h1, pref + bi, vi, 'h1', sh, bemB, refV); if (!v.himno) { const r = document.createElement('span'); r.className = 'rub'; r.textContent = '*'; lin.appendChild(r); corte(); } }
+      const n0 = lin.childNodes.length; renderSilabas(lin, v.h2 || [], pref + bi, vi, 'h2', sh, bemB, refV);
+      if (v.h1 && v.h1.length && lin.childNodes[n0]) lin.childNodes[n0].classList && lin.childNodes[n0].classList.add('h2-ini');
+      if (v.h2 && v.h2.length) { const pz = document.createElement('span'); pz.className = 'pausa-v'; pz.textContent = '‖'; pz.title = 'pausa: fin del verso'; lin.appendChild(pz); }
       fila.append(coro, lin); caja.appendChild(fila);
     });
     if (fila0.melodia) { const t = document.createElement('div'); t.className = 'nota-pie'; t.textContent = '♫ Melodía: ' + fila0.melodia; caja.appendChild(t); }
