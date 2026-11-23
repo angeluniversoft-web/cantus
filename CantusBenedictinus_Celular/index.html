@@ -313,7 +313,8 @@ fieldset.oficio legend{font:700 .8rem var(--f-ui);color:var(--rubrica);padding:0
         </select></label>
       <label class="campo" for="s-guiainstr">Instrumento de la guía
         <select id="s-guiainstr">
-          <option value="tarareo" selected>Coro que tararea (suave, como voz humana sin palabras)</option>
+          <option value="flauta" selected>Flauta suave (instrumento, sin voces) — recomendado</option>
+          <option value="tarareo">Coro que tararea (parecido a voces)</option>
           <option value="organo">Órgano de tubos (flautado)</option>
           <option value="armonio">Armonio (órgano de lengüetas, de fuelle)</option>
           <option value="citara">Cítara (salterio de cuerdas pulsadas)</option>
@@ -3653,7 +3654,7 @@ const Coro = (() => {
     if (op.instrumento === 'guia') {                                   // el órgano dobla la melodía (flautado suave) sobre un pedal tenue
       const fl = ctx.createGain(); fl.gain.value = 0.55; fl.connect(bus); nodos.push(fl);
       // como en el coro: el órgano sostiene la recitación y solo se mueve donde cambia la melodía (antes re-atacaba cada sílaba)
-      const ig = op.guiaInstr === 'tarareo' ? 'tarareo' : 'organo', res = recursosGuia(ctx, ig);   // v2.53.5: también con el tarareo suave
+      const ig = (op.guiaInstr === 'tarareo' || op.guiaInstr === 'flauta') ? op.guiaInstr : 'organo', res = recursosGuia(ctx, ig);   // v2.53.5: también con el tarareo suave
       programar(ctx, t0, tramosContinuos(tl.eventos.filter(e => !e.tono)), x => x.t - 0.2, x => notaSostenida(ctx, fl, x, t0, ig, res, nodos), nodos);
       const ped = ctx.createGain(); ped.gain.value = 0.35; ped.connect(bus); nodos.push(ped);     // pedal tenue, en la octava de la voz
       programar(ctx, t0, tl.acordes, a => a.t - 0.2, a => a.notas.slice(0, 1).forEach(m => nota(ctx, ped, m, t0 + a.t, a.d, 'organo', nodos, onda)), nodos);
@@ -3695,7 +3696,7 @@ const Coro = (() => {
     const toca = e => !soloMios || e.quien === op.miCoro || e.quien === 'todos';
     const ev = tl.eventos.filter(toca);
     const res = recursosGuia(ctx, instr);
-    if (op.guiaEstilo !== 'silabas' || instr === 'tarareo') {
+    if (op.guiaEstilo !== 'silabas' || instr === 'tarareo' || instr === 'flauta') {
       // como en el coro: la nota se sostiene mientras la melodía no cambia; se mueve ligada y respira en las pausas
       programar(ctx, t0, tramosContinuos(ev), x => x.t - 0.2, x => notaSostenida(ctx, bus, x, t0, instr, res, nodos), nodos);
     } else {
@@ -3717,10 +3718,10 @@ const Coro = (() => {
     }, nodos);
     }
     if (op.bordon !== false) {                                         // bordón muy suave, más grave, para no perder la afinación
-      const bb = ctx.createGain(); bb.gain.value = instr === 'tarareo' ? 0.03 : 0.2; bb.connect(bus); nodos.push(bb);
-      const instB = instr === 'citara' ? 'citara' : instr === 'piano' ? 'piano' : instr === 'tarareo' ? 'organo' : instr;
+      const bb = ctx.createGain(); bb.gain.value = (instr === 'tarareo' || instr === 'flauta') ? 0.03 : 0.2; bb.connect(bus); nodos.push(bb);
+      const instB = instr === 'citara' ? 'citara' : instr === 'piano' ? 'piano' : (instr === 'tarareo' || instr === 'flauta') ? 'organo' : instr;
       const acs = soloMios ? tl.acordes.filter(a => ev.some(e => e.t < a.t + a.d && e.t + e.d > a.t)) : tl.acordes;
-      programar(ctx, t0, acs, a => a.t - 0.2, a => a.notas.forEach(m => notaGuia(ctx, bb, m - (instr === 'tarareo' ? 0 : 12), t0 + a.t, a.d, instB, 0.7, nodos, res, true)), nodos);
+      programar(ctx, t0, acs, a => a.t - 0.2, a => a.notas.forEach(m => notaGuia(ctx, bb, m - ((instr === 'tarareo' || instr === 'flauta') ? 0 : 12), t0 + a.t, a.d, instB, 0.7, nodos, res, true)), nodos);
     }
   }
 
@@ -3761,22 +3762,25 @@ const Coro = (() => {
         }));
       }
       g.gain.setValueAtTime(1, t); g.gain.setValueAtTime(1, Math.max(t, fin - 0.01)); g.gain.setTargetAtTime(0, fin, x.ligado ? 0.04 : 0.35);
-    } else if (instr === 'tarareo') {
+    } else if (instr === 'tarareo' || instr === 'flauta') {
+      /* v2.55: «flauta suave» (por omisión): instrumento, no voz. Sin formantes de vocal (eran los que hacían oír «personas»),
+         una sola onda casi pura, apenas soplo, entrada lenta, acento como leve crecida y final que se apaga despacio. */
+      const fl = instr === 'flauta';
       /* v2.53.3: «coro que tararea», más suave y menos grueso (pedido del usuario: «el canto es como un susurro en el monasterio»):
          sin graves (paso alto 240 Hz), vocal entre «u» y «o» más clara (formantes 520 y 1250 Hz), pocos armónicos, un poco de aire
          (soplo filtrado, como un susurro), dos voces apenas separadas, entrada lenta, vibrato muy leve y final que se apaga despacio.
          Las notas muy graves suben una octava: se oyen mejor y la nota es la misma para seguirla. */
       const fs = x.midi < 62 ? f * 2 : f;
       const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 240; hp.Q.value = 0.6;
-      const f1 = ctx.createBiquadFilter(); f1.type = 'peaking'; f1.frequency.value = 480; f1.Q.value = 1.2; f1.gain.value = 4;
-      const f2 = ctx.createBiquadFilter(); f2.type = 'peaking'; f2.frequency.value = 1100; f2.Q.value = 1.6; f2.gain.value = 2;
+      const f1 = ctx.createBiquadFilter(); f1.type = 'peaking'; f1.frequency.value = 480; f1.Q.value = 1.2; f1.gain.value = fl ? 0 : 4;
+      const f2 = ctx.createBiquadFilter(); f2.type = 'peaking'; f2.frequency.value = 1100; f2.Q.value = 1.6; f2.gain.value = fl ? 0 : 2;
       const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1700; lp.Q.value = 0.3;
       g.connect(hp); hp.connect(f1); f1.connect(f2); f2.connect(lp); lp.connect(bus); libre.push(hp, f1, f2, lp);
       const vib = ctx.createOscillator(); vib.frequency.value = 4.6; const vg = ctx.createGain(); vg.gain.value = 0;
-      vib.connect(vg); vib.start(t); vib.stop(fin + 1.2); vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(d > 0.8 ? 5 : 2, t + Math.min(1.2, d * 0.7));
+      vib.connect(vg); vib.start(t); vib.stop(fin + 1.2); vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(fl ? (d > 0.8 ? 3 : 1) : (d > 0.8 ? 5 : 2), t + Math.min(1.2, d * 0.7));
       soltar(vib, vg); nodos.push(vib, vg);
-      [[0, 0.5], [-5, 0.32]].forEach(([cents, a], k) => {
-        const o = ctx.createOscillator(); o.setPeriodicWave(r.voz); o.frequency.value = fs; o.detune.value = cents; vg.connect(o.detune);
+      (fl ? [[0, 0.62]] : [[0, 0.5], [-5, 0.32]]).forEach(([cents, a], k) => {
+        const o = ctx.createOscillator(); o.setPeriodicWave(fl ? r.flauta : r.voz); o.frequency.value = fs; o.detune.value = cents; vg.connect(o.detune);
         const og = ctx.createGain(); og.gain.value = a; o.connect(og); og.connect(g);
         const ts = t + k * 0.015; o.start(ts); o.stop(fin + 1.2); soltar(o, og); nodos.push(o, og);
       });
@@ -3784,7 +3788,7 @@ const Coro = (() => {
       if (!r.ruido) { const n = ctx.sampleRate * 2, bf = ctx.createBuffer(1, n, ctx.sampleRate), dd = bf.getChannelData(0); for (let q = 0; q < n; q++) dd[q] = Math.random() * 2 - 1; r.ruido = bf; }
       const nz = ctx.createBufferSource(); nz.buffer = r.ruido; nz.loop = true;
       const nb = ctx.createBiquadFilter(); nb.type = 'bandpass'; nb.frequency.value = Math.min(1800, fs * 3); nb.Q.value = 1.2;
-      const ng = ctx.createGain(); ng.gain.value = 0.06; nz.connect(nb); nb.connect(ng); ng.connect(g); nz.start(t); nz.stop(fin + 1.2); soltar(nz, ng); nodos.push(nz, nb, ng);
+      const ng = ctx.createGain(); ng.gain.value = fl ? 0.018 : 0.06; nz.connect(nb); nb.connect(ng); ng.connect(g); nz.start(t); nz.stop(fin + 1.2); soltar(nz, ng); nodos.push(nz, nb, ng);
       const b2 = base * 0.7, ent = x.desdeLigado ? 0.2 : 0.45, sal = x.ligado ? 0.22 : 0.9;   // v2.53.4: aún más suave
       g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(b2 * 0.45, t + ent * 0.5); g.gain.linearRampToValueAtTime(b2, t + ent);
       acentos.forEach(e => { const ta = t0 + e.t; if (ta > t + ent) { g.gain.setTargetAtTime(b2 * 1.28, ta - 0.06, 0.09); g.gain.setTargetAtTime(b2 * 0.92, ta + Math.max(0.16, e.d * 0.7), 0.14); } });   // v2.54: acento perceptible (arsis), sin golpe
@@ -3825,6 +3829,8 @@ const Coro = (() => {
       // voz (glotal): armónicos que bajan como en la voz cantada, sin el brillo de una lengüeta
       const nv = 20, iv = new Float32Array(nv); for (let h = 1; h < nv; h++) iv[h] = Math.pow(h, -2.1);   // pocos armónicos: suave, sin brillo
       r.voz = ctx.createPeriodicWave(new Float32Array(nv), iv);
+      // flauta de madera suave: fundamental casi pura con un poco de octava y de duodécima
+      r.flauta = ctx.createPeriodicWave(new Float32Array(6), Float32Array.from([0, 1, 0.22, 0.07, 0.02, 0.01]));
     }
     return r;
   }
@@ -3933,7 +3939,7 @@ const EJEMPLOS = [
 ];
 const API = { activo: false };
 const CELULAR = true;            // la misma página sirve al PC (servidor.py) y al celular (sw.js con la base en el teléfono)
-const VERSION_APP = '2.54.0';
+const VERSION_APP = '2.55.0';
 let piezas = [...EJEMPLOS];
 let actual = piezas[0];
 
@@ -3987,7 +3993,7 @@ async function detectarServidor() {
 
 /* ================= Ajustes ================= */
 let guiaForzada = false;                                              // el botón «Guía instrumental» la activa aunque el ajuste esté en «normal»
-const A = { modo: 8, tesitura: 'baritono', pref: 'blancas', ajuste: 0, silaba: 0.30, nivel: 1, instrumento: 'organo', vol: 0.3, timbre: 'abadia', acustica: 'abadia', cantor: true, voz: 'sintetica', oficio_inv: 'auto', oficio_hi: 'Sexta', oficio_mariana: '0', oficio_lect: 'bienal', oficio_santos: 'oblig', oficio_silencio: '0', oficio_orden: 'romano', dox: true, alt: true, ent: false, notas: true, mi_coro: '', ayuda: 'guia', voces_a: 6, voces_b: 6, natural: false, soplo: 'no', aprendiz: '', guia_instr: 'tarareo', bordon: true, guia_estilo: 'continuo', guia_tempo: 1.3, perfil_tonal: 'ol-20260308:todas', voz_clara: 'leidas', voz_canto: 'suave' };
+const A = { modo: 8, tesitura: 'baritono', pref: 'blancas', ajuste: 0, silaba: 0.30, nivel: 1, instrumento: 'organo', vol: 0.3, timbre: 'abadia', acustica: 'abadia', cantor: true, voz: 'sintetica', oficio_inv: 'auto', oficio_hi: 'Sexta', oficio_mariana: '0', oficio_lect: 'bienal', oficio_santos: 'oblig', oficio_silencio: '0', oficio_orden: 'romano', dox: true, alt: true, ent: false, notas: true, mi_coro: '', ayuda: 'guia', voces_a: 6, voces_b: 6, natural: false, soplo: 'no', aprendiz: '', guia_instr: 'flauta', bordon: true, guia_estilo: 'continuo', guia_tempo: 1.3, perfil_tonal: 'ol-20260308:todas', voz_clara: 'leidas', voz_canto: 'suave' };
 function leerAjustes() {
   A.tesitura = $('s-tesitura').value; A.pref = $('s-pref').value; A.ajuste = +$('s-ajuste').value;
   A.silaba = +$('s-tempo').value; A.timbre = $('s-timbre').value; A.acustica = $('s-acustica').value; A.cantor = $('c-cantor').checked; A.nivel = +$('s-nivel').value; A.instrumento = $('s-instr').value; A.vol = +$('s-vol').value;
@@ -4000,8 +4006,8 @@ function leerAjustes() {
   $('v-ajuste').textContent = (A.ajuste > 0 ? '+' : '') + A.ajuste;
 }
 // v2.54: cambios de ajustes que se aplican una sola vez (aunque los ajustes se lean dos veces al abrir: del equipo y del servidor)
-const MIGRA = (() => { const m = { tarareo: true, suave: true }; try { m.tarareo = localStorage.getItem('cantus-tarareo') !== '1'; m.suave = localStorage.getItem('cantus-suave') !== '1'; } catch (e) {} return m; })();
-function cerrarMigracion() { if (!MIGRA.tarareo && !MIGRA.suave) return; try { localStorage.setItem('cantus-tarareo', '1'); localStorage.setItem('cantus-suave', '1'); } catch (e) {} leerAjustes(); guardarAjustes(); MIGRA.tarareo = MIGRA.suave = false; }
+const MIGRA = (() => { const m = { tarareo: true, suave: true }; try { m.tarareo = localStorage.getItem('cantus-flauta') !== '1'; m.suave = localStorage.getItem('cantus-suave') !== '1'; } catch (e) {} return m; })();
+function cerrarMigracion() { if (!MIGRA.tarareo && !MIGRA.suave) return; try { localStorage.setItem('cantus-flauta', '1'); localStorage.setItem('cantus-suave', '1'); } catch (e) {} leerAjustes(); guardarAjustes(); MIGRA.tarareo = MIGRA.suave = false; }
 function aplicarAjustes(c) {
   if (!c) return;
   const set = (id, v, chk) => { if (v !== undefined && v !== null) { if (chk) $(id).checked = !!(+v); else $(id).value = v; } };
@@ -4009,7 +4015,7 @@ function aplicarAjustes(c) {
   set('s-nivel', c.nivel); set('s-timbre', c.timbre); set('s-acustica', c.acustica); if (c.voz) A.voz = c.voz; set('c-cantor', c.cantor, 1); set('s-instr', c.instrumento); set('s-vol', c.vol);
   set('c-alt', c.alt, 1); set('c-notas', c.notas, 1);
   set('s-micoro', c.mi_coro); set('s-ayuda', c.ayuda); set('s-vocesA', c.voces_a); set('s-vocesB', c.voces_b); set('c-natural', c.natural, 1); set('s-soplo', c.soplo); set('s-aprendiz', c.aprendiz); { const ya = !MIGRA.tarareo;
-    set('s-guiainstr', !ya && (!c.guia_instr || c.guia_instr === 'organo') ? 'tarareo' : c.guia_instr); }   /* v2.53: una vez, el coro que tararea pasa a ser la guía */ set('c-bordon', c.bordon, 1); set('s-guiaestilo', c.guia_estilo); set('s-guiatempo', c.guia_tempo); { const ya2 = !MIGRA.suave;
+    set('s-guiainstr', !ya && (!c.guia_instr || c.guia_instr === 'organo' || c.guia_instr === 'tarareo') ? 'flauta' : c.guia_instr); }   /* v2.53: una vez, el coro que tararea pasa a ser la guía */ set('c-bordon', c.bordon, 1); set('s-guiaestilo', c.guia_estilo); set('s-guiatempo', c.guia_tempo); { const ya2 = !MIGRA.suave;
     set('s-vozcanto', !ya2 && (!c.voz_canto || c.voz_canto === 'organo') ? 'suave' : c.voz_canto); }   /* v2.54: una vez, todo con el sonido suave */
   if (c.oficio_inv) { A.oficio_inv = c.oficio_inv; $('of-inv').value = c.oficio_inv; }
   if (c.oficio_hi) { A.oficio_hi = c.oficio_hi; $('of-hi').value = c.oficio_hi; }
