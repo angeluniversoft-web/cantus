@@ -3939,7 +3939,7 @@ const EJEMPLOS = [
 ];
 const API = { activo: false };
 const CELULAR = true;            // la misma página sirve al PC (servidor.py) y al celular (sw.js con la base en el teléfono)
-const VERSION_APP = '2.55.0';
+const VERSION_APP = '2.55.1';
 let piezas = [...EJEMPLOS];
 let actual = piezas[0];
 
@@ -4319,7 +4319,7 @@ function audio() {
 }
 function opVoz() { return { timbre: A.timbre, acustica: A.acustica, alternar: A.alt, cantor: A.cantor, instrumento: A.instrumento, vol: A.vol, banco: A.voz !== 'sintetica' ? bancoActivo : null,
   miCoro: A.mi_coro, ayuda: A.ayuda, vocesA: A.voces_a, vocesB: A.voces_b, natural: A.natural, soplo: A.soplo,
-  aprendiz: (guiaForzada || A.voz_canto !== 'sintetica') && !A.aprendiz ? 'todo' /* v2.52: sin voz artificial, el órgano toca la melodía */ : A.aprendiz === 'mios' && !A.mi_coro ? '' : A.aprendiz /* «mis versos» sin coro elegido: cantan los monjes */, guiaInstr: A.guia_instr, bordon: A.bordon, guiaEstilo: A.guia_estilo }; }
+  aprendiz: A.voz_canto === 'suave' ? 'todo' /* v2.55.1: con «solo el sonido suave» nunca canta el coro (ni con «Mi lugar en el coro»): solo el instrumento */ : (guiaForzada || A.voz_canto !== 'sintetica') && !A.aprendiz ? 'todo' /* v2.52: sin voz artificial, el órgano toca la melodía */ : A.aprendiz === 'mios' && !A.mi_coro ? '' : A.aprendiz /* «mis versos» sin coro elegido: cantan los monjes */, guiaInstr: A.guia_instr, bordon: A.bordon, guiaEstilo: A.guia_estilo }; }
 /** Duración de la sílaba: con la guía instrumental, más pausada (como cantan los monjes) */
 function guiaActiva() { return guiaForzada || A.aprendiz === 'todo' || (A.aprendiz === 'mios' && !!A.mi_coro); }
 function silabaUso() { return A.silaba * (guiaActiva() ? (+A.guia_tempo || 1) : 1); }
@@ -4447,6 +4447,7 @@ function elegirVoz() {
 if (window.speechSynthesis) { speechSynthesis.onvoiceschanged = elegirVoz; setTimeout(elegirVoz, 300); }
 $('b-pron').onclick = () => {
   detener();
+  if (A.voz_canto === 'suave') return $('b-recto').onclick();   // v2.55.1: sin voces: la pronunciación es el recto tono pausado con el instrumento suave
   if (!window.speechSynthesis) return toast('Este navegador no tiene voz hablada.');
   if (!vozES) toast('No hay voz española instalada. En Windows: Configuración › Hora e idioma › Voz › Agregar voces.');
   versos.forEach((v, vi) => {
