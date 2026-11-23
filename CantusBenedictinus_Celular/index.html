@@ -2818,10 +2818,31 @@ const Oficio = (() => {
      Cada bloque: { parte, filas:[{voz, etiqueta, versos?|frases?}], tl } ; op: { modo, silaba, desp(modo), nivel, alternar, cantor, melodia(pieza) } */
   const GLORIA = 'Gloria al Padre, y al Hijo, y al Espíritu Santo. Como era en el principio, ahora y siempre, por los siglos de los siglos. Amén.';
   const limpiarVR = (t) => t.replace(/^(V\/\.|R\/\.|V\.|R\.)\s*/, '');
+  /* v2.57: en las grabaciones el «Aleluya» final se canta más prolongado y redondo (unas 2,5 veces más largo, la última sílaba
+     sostenida): se alargan sus cuatro sílabas y lo que viene después se corre. */
+  function alargarAleluya(tl) {
+    const ev = tl && tl.eventos; if (!ev || ev.length < 4) return;
+    const txt = (e) => ((e.sil && e.sil.txt) || '').toLowerCase().replace(/[^a-záéíóú]/g, '');
+    for (let i = ev.length - 4; i >= 0; i--) {
+      if (txt(ev[i]) + txt(ev[i + 1]) + txt(ev[i + 2]) + txt(ev[i + 3]) !== 'aleluya') continue;
+      const fac = [1.8, 1.8, 2.4, 3.2]; let extra = 0;
+      for (let k = i; k < ev.length; k++) {
+        ev[k].t += extra;
+        if (k - i < 4) { const nd = ev[k].d * fac[k - i]; extra += nd - ev[k].d; ev[k].d = nd; }
+      }
+      (tl.acordes || []).forEach(a => { if (a.t >= ev[i].t - extra) { /* acordes posteriores */ } });
+      if (tl.acordes && tl.acordes.length) { const ult = tl.acordes[tl.acordes.length - 1]; ult.d += extra; }
+      tl.duracion = (tl.duracion || 0) + extra;
+      return;
+    }
+  }
   function filasVersiculo(texto, op, parte) {
     const filas = [], est = (op && op.estiloDe && op.estiloDe(parte)) || 'versiculo', estG = (op && op.estiloDe && op.estiloDe(parte, 'gloria')) || est;
+    let conGloria = false;
     texto.split('\n').map(x => x.trim()).filter(Boolean).forEach(l => {
+      if (conGloria && /^(Como era|R\/?\.?\s*Como era)/.test(l)) return;     // v2.57: el «Como era» ya va con el Gloria (antes salía dos veces)
       if (/^Gloria al Padre/.test(l)) {
+        conGloria = true;
         filas.push({ voz: 'cantor', etiqueta: 'Cantor', frases: M.recitar('Gloria al Padre, y al Hijo, y al Espíritu Santo.', estG) });
         filas.push({ voz: 'todos', etiqueta: 'Todos', frases: M.recitar('Como era en el principio, ahora y siempre, por los siglos de los siglos. Amén.' + (parte && parte.aleluya ? ' Aleluya.' : ''), estG) });
         return;
@@ -2885,6 +2906,7 @@ const Oficio = (() => {
     const SP = (parte) => (op.silabaDe && op.silabaDe(parte)) || S;        // perfil de una grabación: velocidad medida en ella
     const recit = (parte, filas) => {
       const tl = M.lineaRecitada(filas, { silaba: SP(parte), desplazamiento: op.desp(6, parte), nivel: op.nivel });
+      alargarAleluya(tl);
       out.push({ parte, filas, tl, tipo: 'recitado' });
     };
     const MD = (parte, m) => (parte && parte.tonoFijo ? m : op.modoDe ? op.modoDe(parte, m) : m);       // perfil tonal de una grabación: modo por parte
@@ -2903,7 +2925,10 @@ const Oficio = (() => {
     const salmo = (parte, p, antifona, opc = {}) => {
       const modo = MD(parte, p.modo || 8), sh = op.desp(modo, parte);
       const vs = versosConCoros(M.analizar(p.texto, { modo, doxologia: opc.gloria !== false && !/sin Gloria/i.test(p.notas || ''), alternar: op.alternar !== false, entonarCada: !!opc.entonarCada }), op);
-      const tl = M.lineaTiempo(vs, { modo, desplazamiento: sh, silaba: SP(parte), nivel: op.nivel, metrica: op.metrica ? op.metrica(parte) : null });
+      // v2.57: paso medido en las grabaciones del usuario: salmos y cánticos ×1,2 (Sal 90 de Completas: 250 s en la grabación
+      // frente a 208 s antes); cánticos evangélicos ×1,6 (Nunc dimittis 107-145 s frente a 76 s; Benedictus de Laudes 240 s)
+      const lento = parte && (parte.canto === 'evangelico' || parte.id === 'evang') ? 1.6 : 1.2;
+      const tl = M.lineaTiempo(vs, { modo, desplazamiento: sh, silaba: SP(parte) * lento, nivel: op.nivel, metrica: op.metrica ? op.metrica(parte) : null });
       tl.eventos.forEach(e => { e.voz = (op.cantor !== false && e.verso === 0 && (e.parte === 'flex' || e.parte === 'h1')) ? 'cantor' : (op.alternar === false ? 'todos' : e.coro); });
       out.push({ parte, filas: [{ versos: vs, titulo: p.titulo, modo }], tl, tipo: 'salmo', pieza: p, encabezado: opc.encabezado });
     };
@@ -2922,7 +2947,7 @@ const Oficio = (() => {
       }
       modo = MD(parte, modo);
       const vs = M.antifonaSimple(texto, modo);
-      const tl = M.lineaTiempo(vs, { modo, desplazamiento: op.desp(modo, parte), silaba: SP(parte) * 1.05, nivel: op.nivel });
+      const tl = M.lineaTiempo(vs, { modo, desplazamiento: op.desp(modo, parte), silaba: SP(parte) * 1.05 * 1.2, nivel: op.nivel });   // v2.57: al paso de la grabación
       tl.eventos.forEach(e => { e.voz = primera && e.parte !== 'h2' ? 'cantor' : 'todos'; });
       out.push({ parte, filas: [{ versos: vs, antifona: true, modo }], tl, tipo: 'antifona', encabezado, cierre: !primera });
     };
@@ -3967,7 +3992,7 @@ const EJEMPLOS = [
 ];
 const API = { activo: false };
 const CELULAR = true;            // la misma página sirve al PC (servidor.py) y al celular (sw.js con la base en el teléfono)
-const VERSION_APP = '2.56.1';
+const VERSION_APP = '2.57.0';
 let piezas = [...EJEMPLOS];
 let actual = piezas[0];
 
@@ -5585,6 +5610,7 @@ window.__cantusCantar = (i) => cantarOficio(i); window.__cantusDetener = () => d
 window.__cantusMonjes = async (fecha, hora) => { window.__cantusOficio(fecha, hora); await cargarMisCantos(true); return OF.bloques.map((b, i) => { const g = grabacionMonjes(b, i); return g ? i + ':' + b.tipo + ':' + (b.parte && b.parte.id) + ':' + [...MONJES].find(([k, v]) => v.id === g.id)[0] + ':n' + g.n : null; }).filter(Boolean); };
 window.__cantusHora = { clave: () => { const h = horaGrabada(); return h ? h.clave : null; }, cantar: (i) => tocarBloque(i || 0), detener: () => detener(), estado: () => ({ audio: OF.audioHora ? [OF.audioHora.paused, Math.round(OF.audioHora.currentTime), Math.round(OF.audioHora.duration)] : null, cursor: OF.cursor, parte: OF.bloques[OF.cursor] && OF.bloques[OF.cursor].parte && OF.bloques[OF.cursor].parte.id, sonando: [...document.querySelectorAll('.parte.sonando .bloque')].map(x => x.id).join(',') }), saltar: (t) => { if (OF.audioHora) OF.audioHora.currentTime = t; }, aprendiz: () => opOficio().aprendiz, voz: () => A.voz_canto };
 window.__cantusCobertura = (fecha, hora) => { window.__cantusOficio(fecha, hora); const r = {}; ['intro', 'himno', 'salmodia', 'evang'].forEach(id => { perfilBase.ultimo = null; perfilBase({ id }); r[id] = perfilBase.ultimo; }); r.cal = OF.armada.cal.tiempo + ' ' + OF.armada.cal.dia + ' s' + OF.armada.cal.salterio; return r; };
+window.__cantusTL = (i) => { const b = OF.bloques[i]; return b && b.tl ? b.tl.eventos.map(e => [e.sil ? e.sil.txt : '', +e.t.toFixed(2), +e.d.toFixed(2), e.midi]) : null; };
 window.__cantusPerfil = (fecha, hora, id) => { window.__cantusOficio(fecha, hora); const e = perfilDe({ id, perfilId: /^examen-/.test(id) ? id : undefined }); return e ? (e.tenor || '') + ' ' + (e.modo || '') + ' ' + (e.silencio || '') : null; };
 window.__cantusOficio = (fecha, hora) => { OF.fecha = fecha; OF.hora = hora; renderOficio(); return { titulo: OF.armada.titulo, partes: OF.armada.partes.map(p => ({ nombre: p.nombre, piezas: p.piezas.map(x => x.titulo), falta: p.falta, aviso: p.aviso })), bloques: OF.bloques.length, dur: O.unir(OF.bloques).duracion, modos: OF.bloques.map(b => (b.filas && b.filas[0] && b.filas[0].modo) || 0), sil: OF.bloques.map(silencioTras), lista: OF.bloques.map((b, i) => i + ':' + (b.tipo || '') + ':' + (b.parte && b.parte.nombre || '') + ':' + (b.tl ? Math.round(b.tl.duracion) : 0) + (b.melodica ? '♫' : '')), antifonas: OF.bloques.filter(b => b.tipo === 'antifona').map(b => (b.melodica ? '♫ ' : '  ') + (b.filas[0].frases ? b.filas[0].frases[0].sils.map(s => s.txt).join(' ') : b.filas[0].versos ? '(tono del modo)' : '')) }; };
 
