@@ -91,6 +91,15 @@ main{display:flex;flex-direction:column;gap:18px;min-width:0}
 .sil.activa .nota{color:var(--vela);font-weight:700}
 .sep{display:inline-block;width:.25em}
 .rub{color:var(--rubrica);font-weight:700;padding:0 .3em}
+/* v2.59: documentación de referencia en letra grande */
+.doc-ref{position:fixed;inset:0;z-index:1100;background:var(--fondo, #f6f3ec);overflow:auto;-webkit-overflow-scrolling:touch}
+.doc-barra{position:sticky;top:0;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 16px;background:var(--hoja);border-bottom:1px solid var(--linea);z-index:1}
+.doc-barra b{font:700 1.1rem var(--f-titulo, serif)}
+.doc-tam{display:flex;gap:6px}.doc-barra .btn{min-height:44px;min-width:48px;font-size:1.05rem}
+.doc-texto{--doc-tam:1.3rem;font-size:var(--doc-tam);line-height:1.65;max-width:44em;margin:0 auto;padding:18px 18px 80px;color:var(--tinta)}
+.doc-texto h2{font-size:1.35em;color:var(--rubrica);margin:1.2em 0 .4em}
+.doc-texto h3{font-size:1.15em;margin:1em 0 .2em}.doc-texto h3 small{font-weight:400;color:var(--tinta-2);font-size:.75em}
+.doc-texto li{margin:.35em 0}.doc-texto p{margin:.3em 0 .8em}
 /* v2.58: barra fija para pausar o detener mientras suena (sobre todo en el celular) */
 .control-canto{position:fixed;left:50%;transform:translateX(-50%);bottom:max(14px, env(safe-area-inset-bottom, 0px));z-index:1000;display:flex;gap:10px;align-items:center;background:var(--hoja);border:1px solid var(--linea);border-radius:999px;padding:8px 12px;box-shadow:0 6px 24px rgba(0,0,0,.28);max-width:calc(100vw - 32px)}
 .control-canto .btn{min-height:48px;padding:0 20px;font-size:1.05rem;border-radius:999px;white-space:nowrap}
@@ -259,7 +268,7 @@ fieldset.oficio legend{font:700 .8rem var(--f-ui);color:var(--rubrica);padding:0
 <div class="app">
   <header class="cab">
     <div class="marca">Cantus Benedictinus <em>Hispánicus</em></div>
-    <nav class="vistas" aria-label="Vista"><button type="button" id="vista-oficio" aria-pressed="false">Oficio del día</button><button type="button" id="vista-pieza" aria-pressed="true">Practicar una pieza</button></nav>
+    <nav class="vistas" aria-label="Vista"><button type="button" id="vista-oficio" aria-pressed="false">Oficio del día</button><button type="button" id="vista-pieza" aria-pressed="true">Practicar una pieza</button><button type="button" id="vista-doc" aria-pressed="false">Documentación</button></nav>
     <div class="estado"><span class="pill" id="estado-datos">Sin servidor · piezas de ejemplo</span><span class="pill" id="estado-voz">Voz hablada: buscando…</span><span class="version" id="version-app"></span></div>
   </header>
 
@@ -647,6 +656,42 @@ fieldset.oficio legend{font:700 .8rem var(--f-ui);color:var(--rubrica);padding:0
       <div class="acciones"><button class="btn prim" id="e-guardar" type="button">Guardar</button><button class="btn" id="e-cancelar" type="button">Cancelar</button><button class="btn" id="e-borrar" type="button" hidden>Eliminar pieza</button></div>
     </section>
   </main>
+</div>
+<div class="doc-ref" id="doc-ref" hidden role="dialog" aria-modal="true" aria-labelledby="doc-titulo">
+  <div class="doc-barra">
+    <b id="doc-titulo">Documentación de referencia</b>
+    <span class="doc-tam"><button type="button" class="btn" id="doc-menos" aria-label="Letra más pequeña">A−</button><button type="button" class="btn" id="doc-mas" aria-label="Letra más grande">A+</button></span>
+    <button type="button" class="btn prim" id="doc-cerrar">Cerrar</button>
+  </div>
+  <article class="doc-texto" id="doc-texto">
+    <h2>1. La fórmula diaria</h2>
+    <p>Cada hora se arma siempre con cuatro fuentes, en este orden de prioridad:</p>
+    <ol>
+      <li><b>Ordinario:</b> la estructura fija (invocación, Padre nuestro, etc.).</li>
+      <li><b>Propio del Tiempo:</b> el himno, las antífonas y las lecturas propias de la semana o de la festividad.</li>
+      <li><b>Salterio:</b> los salmos de la semana (se alternan en un ciclo de 4 semanas).</li>
+      <li><b>Propio de los Santos</b> (si aplica): antífonas o lecturas específicas del santo del día.</li>
+    </ol>
+    <h2>2. Esquema estructural de las horas</h2>
+    <p>Todas las horas comparten un «esqueleto» común, con variaciones específicas:</p>
+    <h3>Oficio de lectura <small>(antes Maitines)</small></h3>
+    <p>Invocación (<i>Dios mío, ven en mi auxilio</i>) · Himno · Salmodia (3 salmos o cánticos con sus antífonas) · Lectura larga (una bíblica y otra patrística o de los Padres de la Iglesia) · Responsorio · <i>Te Deum</i> (solo domingos y solemnidades) · Oración final.</p>
+    <h3>Laudes <small>(oración de la mañana)</small></h3>
+    <p>Invocación · Himno · Salmodia (un salmo matutino, un cántico del Antiguo Testamento y un salmo de alabanza) · Lectura breve · Cántico evangélico (<i>Benedictus</i>) · Preces · Padre nuestro · Oración final.</p>
+    <h3>Hora intermedia <small>(Tercia, Sexta, Nona)</small></h3>
+    <p>Invocación · Himno · Salmodia (3 salmos o tres partes de uno largo) · Lectura breve · Versículo · Oración final.</p>
+    <h3>Vísperas <small>(oración de la tarde)</small></h3>
+    <p>Idéntica a Laudes, pero el cántico evangélico es el <i>Magníficat</i>.</p>
+    <h3>Completas <small>(oración de la noche)</small></h3>
+    <p>Examen de conciencia · Invocación · Himno · Salmodia (generalmente el Salmo 90/91) · Lectura breve · Responsorio (<i>En tus manos, Señor</i>) · Cántico de Simeón (<i>Nunc dimittis</i>) · Oración final · Antífona mariana final.</p>
+    <h2>Notas de la app</h2>
+    <ul>
+      <li>Cuando la hora es la primera del día, antes va el <b>Invitatorio</b> (<i>Señor, ábreme los labios</i> y el salmo 94 con su antífona).</li>
+      <li>En el libro, Completas empiezan con la invocación y luego viene el examen de conciencia (Ordenación general, n. 86); la app las canta en ese orden.</li>
+      <li>El <i>Te Deum</i> se dice también en las fiestas y en la octava de Navidad y de Pascua, y no en los domingos de Cuaresma.</li>
+      <li>Cada salmo termina con el <i>Gloria al Padre</i> y su antífona se repite al final.</li>
+    </ul>
+  </article>
 </div>
 <div class="toast" id="toast" hidden></div>
 <div class="control-canto" id="control-canto" hidden>
@@ -4002,7 +4047,7 @@ const EJEMPLOS = [
 ];
 const API = { activo: false };
 const CELULAR = true;            // la misma página sirve al PC (servidor.py) y al celular (sw.js con la base en el teléfono)
-const VERSION_APP = '2.58.0';
+const VERSION_APP = '2.59.0';
 let piezas = [...EJEMPLOS];
 let actual = piezas[0];
 
@@ -5624,6 +5669,14 @@ function tocarBloque(i) {
 }
 $('vista-oficio').onclick = () => vista('oficio');
 $('vista-pieza').onclick = () => vista('pieza');
+// v2.59: documentación de referencia (letra grande, tamaño ajustable y recordado en el equipo)
+{ let tam = 1.3; try { tam = +(localStorage.getItem('cantus-doc-tam') || 1.3); } catch (e) {}
+  const pon = () => { $('doc-texto').style.setProperty('--doc-tam', tam.toFixed(2) + 'rem'); try { localStorage.setItem('cantus-doc-tam', tam); } catch (e) {} };
+  $('vista-doc').onclick = () => { pon(); $('doc-ref').hidden = false; $('vista-doc').setAttribute('aria-pressed', 'true'); $('doc-cerrar').focus(); };
+  $('doc-cerrar').onclick = () => { $('doc-ref').hidden = true; $('vista-doc').setAttribute('aria-pressed', 'false'); };
+  $('doc-mas').onclick = () => { tam = Math.min(2.4, tam + 0.15); pon(); };
+  $('doc-menos').onclick = () => { tam = Math.max(1.0, tam - 0.15); pon(); };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('doc-ref').hidden) $('doc-cerrar').onclick(); }); }
 $('of-cantar').onclick = () => { const cambia = guiaForzada; guiaForzada = false; if (cambia) renderOficio(); cantarOficio(0); };
 $('of-guiainst').onclick = () => { const cambia = !guiaForzada; guiaForzada = true; if (cambia) renderOficio(); cantarOficio(0); };
 $('of-stop').onclick = () => { DIACOMP = null; detener(); };
