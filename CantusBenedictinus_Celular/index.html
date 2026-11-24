@@ -231,6 +231,7 @@ body.modo-oficio #voces-panel, body.modo-oficio .pauta-caja{display:none}
 .parte .falta-msg{font:.92rem var(--f-ui);color:var(--tinta-2);margin:0}
 .parte .aviso-propio{font:.85rem var(--f-ui);color:var(--vela);border-left:3px solid var(--vela);padding:2px 8px;margin:0}
 .bloque-tit{font:600 .9rem var(--f-ui);color:var(--tinta-2);margin-top:4px}
+.parte-cab .acc .ref-monjes{border-color:#a3241c;color:#a3241c}.parte-cab .acc .ref-monjes.sonando{background:#a3241c;color:#fff}
 .mi-canto{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin:2px 0 4px}
 .mi-canto button{font:600 .78rem var(--f-ui);padding:3px 9px;border-radius:999px;border:1px solid var(--linea);background:transparent;color:var(--tinta-2);cursor:pointer}
 .mi-canto button.tiene{border-color:#a3241c;color:#a3241c}
@@ -4068,7 +4069,7 @@ const EJEMPLOS = [
 ];
 const API = { activo: false };
 const CELULAR = true;            // la misma página sirve al PC (servidor.py) y al celular (sw.js con la base en el teléfono)
-const VERSION_APP = '2.60.0';
+const VERSION_APP = '2.61.0';
 let piezas = [...EJEMPLOS];
 let actual = piezas[0];
 
@@ -4552,6 +4553,7 @@ function terminar() {
   document.querySelectorAll('.sil.activa,.verso.actual').forEach(x => x.classList.remove('activa', 'actual'));
 }
 function detener() {
+  if (refAudio) pararReferencia();          // v2.61: también el fragmento de referencia
   if (PAUSADO || PENDIENTE) { PAUSADO = false; PENDIENTE = null; try { if (ctx && ctx.state === 'suspended') ctx.resume(); } catch (e) {} try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} }
   if (typeof OF !== 'undefined') { OF.cadena = false; clearTimeout(OF.espera); clearInterval(OF.intGrab); if (OF.audioHora) { try { OF.audioHora.pause(); } catch (e) {} OF.audioHora = null; } }
   if (window.speechSynthesis) speechSynthesis.cancel();
@@ -5129,6 +5131,14 @@ function renderOficio() {
     const acc = document.createElement('div'); acc.className = 'acc';
     const bi0 = bls.length ? bls[0][1] : -1;
     if (bi0 >= 0 && bls.some(([b]) => b.tl)) { const bp = document.createElement('button'); bp.className = 'btn'; bp.type = 'button'; bp.textContent = '▶ Desde aquí'; bp.onclick = () => cantarOficio(bi0); acc.appendChild(bp); }
+    const rf = refsDeParte(parte);
+    if (rf.length) rf.forEach(r => { const br = document.createElement('button'); br.className = 'btn ref-monjes'; br.type = 'button';
+      br.dataset.txt = br.textContent = '🎧 Monjes' + (r.n != null && rf.length > 1 ? ' · ' + (r.n + 1) + '.º' : '');
+      br.title = 'Escuchar unos segundos de cómo lo cantan los monjes (' + r.perfil + ')' + (r.n != null ? ', salmo ' + (r.n + 1) + '.º' : '');
+      br.onclick = () => tocarReferencia(r, br); acc.appendChild(br);
+      const bl = document.createElement('button'); bl.className = 'btn ref-monjes lento'; bl.type = 'button'; bl.dataset.txt = bl.textContent = '🐢'; bl.dataset.vel = '0.75';
+      bl.title = 'El mismo fragmento, más despacio y sin cambiar el tono, para repetirlo detrás'; bl.setAttribute('aria-label', 'Monjes más despacio');
+      bl.onclick = () => tocarReferencia(r, bl); acc.appendChild(bl); });
     if (parte.canto === 'himno' && p0 && API.activo) {
       const sel = document.createElement('select'); sel.setAttribute('aria-label', 'Melodía del himno');
       const mel = melodiaPara(p0);
@@ -5204,6 +5214,8 @@ const MIS = new Map();                          // clave -> { id, pieza_id }
 /* v2.48: grabaciones reales de los monjes para las partes de texto fijo (paquete personal «Grabaciones de los monjes»):
    invocación inicial de cada hora, y en Completas el responsorio «En tus manos» y el Nunc dimittis con su antífona.
    Clave en el campo motor: «monjes:<parte>:<hora>:<cuaresma|resto>[:sab|dom]». La grabación propia («Mi canto») manda. */
+var refAudio = null, refBoton = null;
+const REFS = new Map();                         // v2.61: «ref:<perfil>:<parte>[:n]» -> id del fragmento de referencia de los monjes
 const MONJES = new Map();                       // motor -> { id, pieza_id }
 /* v2.52: Completas enteras con la grabación de los monjes. Completas tiene el mismo texto cada semana según el día, así que la
    grabación de ese día sirve tal cual. Mapa: dónde empieza cada parte (s) en la grabación, medido por las pausas y el tono. */
@@ -5239,6 +5251,32 @@ async function tocarHoraGrabada(hg, i) {
   au.onended = () => { clearInterval(OF.intGrab); OF.audioHora = null; URL.revokeObjectURL(url); OF.cadena = false; marcarBloque(-1); toast('Fin de ' + OF.armada.titulo + '.'); registrarPractica('Oficio: ' + OF.armada.titulo, au.duration || 0);
     if (DIACOMP) OF.espera = setTimeout(() => { if (DIACOMP) siguienteHoraDia(); }, 4000); };
   try { await au.play(); } catch (e) { toast('Pulsa de nuevo «Cantar» para empezar el audio.'); }
+}
+/* v2.61: fragmento corto de los monjes para cada parte, como referencia de la entonación y la acentuación.
+   Se elige la grabación modelo que corresponde a esta hora, día y tiempo (la misma que da el tono); si esa no tiene la parte, la de otra grabación de la misma hora. */
+function refsDeParte(parte) {
+  if (!REFS.size || !parte || !OF.armada) return [];
+  const hora = OF.armada.hora, cal = OF.armada.cal || {}, dia = cal.diaIdx, tiempo = cal.tiempo, hd = OF.armada.horaDatos, sal = cal.salterio;
+  const k = parte.id;
+  const esp = (Q) => (Q.dias ? 1 : 0) + (Q.tiempos ? 1 : 0) + (Q.horaDatos ? 1 : 0) + (Q.salterio ? 1 : 0);
+  const todos = Object.entries(M.PERFILES).map(([id, Q]) => ({ ...Q, _id: id })).filter(Q => Q.hora === hora && (!Q.horaDatos || !hd || Q.horaDatos === hd));
+  const encaja = (Q) => (!Q.dias || Q.dias.includes(dia)) && (!Q.tiempos || Q.tiempos.includes(tiempo)) && (!Q.salterio || Q.salterio.includes(sal));
+  const orden = [...todos.filter(encaja).sort((a, b) => esp(b) - esp(a)), ...todos.filter(Q => !encaja(Q) && (!Q.tiempos || Q.tiempos.includes(tiempo))), ...todos.filter(Q => !encaja(Q) && Q.tiempos && !Q.tiempos.includes(tiempo))];
+  const claves = parte.id === 'lectura' && hora === 'Oficio de lectura' ? ['lectura1'] : parte.id === 'resp' && hora === 'Oficio de lectura' ? ['resp1'] : [k];
+  for (const Q of orden) {
+    if (parte.id === 'salmodia') { const l = [0, 1, 2].map(n => REFS.get(`ref:${Q._id}:salmodia:${n}`) ? { id: REFS.get(`ref:${Q._id}:salmodia:${n}`), n, perfil: Q._id } : null); if (l.some(Boolean)) return l.filter(Boolean); continue; }
+    for (const c of claves) if (REFS.has(`ref:${Q._id}:${c}`)) return [{ id: REFS.get(`ref:${Q._id}:${c}`), perfil: Q._id }];
+  }
+  return [];
+}
+function pararReferencia() { if (refAudio) { refAudio.pause(); URL.revokeObjectURL(refAudio.src); refAudio = null; } if (refBoton) { refBoton.classList.remove('sonando'); refBoton.textContent = refBoton.dataset.txt; refBoton = null; } }
+async function tocarReferencia(r, bt) {
+  const eraEste = refBoton === bt; pararReferencia(); if (eraEste) return;      // segundo toque: la detiene
+  detener();
+  try { const x = await fetch('api/audios/' + r.id + '/archivo'); if (!x.ok) throw 0;
+    const au = new Audio(URL.createObjectURL(await x.blob())); au.preservesPitch = true; au.mozPreservesPitch = true; au.webkitPreservesPitch = true; au.playbackRate = +(bt.dataset.vel || 1);
+    refAudio = au; refBoton = bt; bt.classList.add('sonando'); bt.textContent = '■ Detener'; au.onended = pararReferencia; await au.play();
+  } catch (e) { pararReferencia(); toast('No pude leer el fragmento de los monjes.'); }
 }
 function grabacionMonjes(b, i) {
   if (A.voz_canto === 'suave' || !MONJES.size || !b || !b.parte || b.parte.sub || !OF.armada || b.tipo === 'falta' || !b.tl || !(b.tl.eventos || []).length) return null;
@@ -5280,6 +5318,11 @@ async function cargarMisCantos(forzar) {
   if (pm && pm.id && (!misPorPieza.has(pm.id) || forzar)) {
     try { const l = await api('piezas/' + pm.id + '/audios'); misPorPieza.set(pm.id, l); MONJES.clear();
       l.filter(a => (a.motor || '').startsWith('monjes:')).forEach(a => MONJES.set(a.motor, { id: a.id, pieza_id: pm.id })); } catch (e) {}
+  }
+  const pr = piezas.find(x => x.origen === 'monjes:referencias');
+  if (pr && pr.id && (!misPorPieza.has(pr.id) || forzar)) {
+    try { const l = await api('piezas/' + pr.id + '/audios'); misPorPieza.set(pr.id, l); const antes = REFS.size; REFS.clear();
+      l.filter(a => (a.motor || '').startsWith('ref:')).forEach(a => REFS.set(a.motor, a.id)); if (REFS.size !== antes) renderOficio(); } catch (e) {}
   }
   document.querySelectorAll('.mi-canto').forEach(bar => {
     const bt = bar.querySelector('.b-grabar'), t = MIS.has(bar.dataset.clave), bi = +(bar.dataset.bi || -1), gm = !t && bi >= 0 && grabacionMonjes(OF.bloques[bi], bi);
@@ -5729,6 +5772,8 @@ window.__cantusOficioWav = async (n, ajustes) => {                        // par
 window.__cantusCantar = (i) => cantarOficio(i); window.__cantusDetener = () => detener();   // para pruebas y para grabar ejemplos
 window.__cantusMonjes = async (fecha, hora) => { window.__cantusOficio(fecha, hora); await cargarMisCantos(true); return OF.bloques.map((b, i) => { const g = grabacionMonjes(b, i); return g ? i + ':' + b.tipo + ':' + (b.parte && b.parte.id) + ':' + [...MONJES].find(([k, v]) => v.id === g.id)[0] + ':n' + g.n : null; }).filter(Boolean); };
 window.__cantusHora = { clave: () => { const h = horaGrabada(); return h ? h.clave : null; }, cantar: (i) => tocarBloque(i || 0), detener: () => detener(), estado: () => ({ audio: OF.audioHora ? [OF.audioHora.paused, Math.round(OF.audioHora.currentTime), Math.round(OF.audioHora.duration)] : null, cursor: OF.cursor, parte: OF.bloques[OF.cursor] && OF.bloques[OF.cursor].parte && OF.bloques[OF.cursor].parte.id, sonando: [...document.querySelectorAll('.parte.sonando .bloque')].map(x => x.id).join(',') }), saltar: (t) => { if (OF.audioHora) OF.audioHora.currentTime = t; }, aprendiz: () => opOficio().aprendiz, voz: () => A.voz_canto };
+window.__cantusRefs = (fecha, hora) => { window.__cantusOficio(fecha, hora); return OF.armada.partes.map(p => p.id + '=' + refsDeParte(p).map(r => r.perfil + (r.n != null ? ':' + r.n : '')).join(',')).filter(x => !/=$/.test(x)); };
+window.__cantusRefEstado = () => [refAudio && !refAudio.paused, refAudio && Math.round(refAudio.currentTime * 10) / 10, refAudio && Math.round(refAudio.duration), refAudio && refAudio.playbackRate, refBoton && refBoton.textContent, document.querySelectorAll('.ref-monjes.sonando').length];
 window.__cantusCobertura = (fecha, hora) => { window.__cantusOficio(fecha, hora); const r = {}; ['intro', 'himno', 'salmodia', 'evang'].forEach(id => { perfilBase.ultimo = null; perfilBase({ id }); r[id] = perfilBase.ultimo; }); r.cal = OF.armada.cal.tiempo + ' ' + OF.armada.cal.dia + ' s' + OF.armada.cal.salterio; return r; };
 window.__cantusTL = (i) => { const b = OF.bloques[i]; return b && b.tl ? b.tl.eventos.map(e => [e.sil ? e.sil.txt : '', +e.t.toFixed(2), +e.d.toFixed(2), e.midi]) : null; };
 window.__cantusPerfil = (fecha, hora, id) => { window.__cantusOficio(fecha, hora); const e = perfilDe({ id, perfilId: /^examen-/.test(id) ? id : undefined }); return e ? (e.tenor || '') + ' ' + (e.modo || '') + ' ' + (e.silencio || '') : null; };
