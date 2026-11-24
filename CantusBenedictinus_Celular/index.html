@@ -684,6 +684,25 @@ fieldset.oficio legend{font:700 .8rem var(--f-ui);color:var(--rubrica);padding:0
     <p>Idéntica a Laudes, pero el cántico evangélico es el <i>Magníficat</i>.</p>
     <h3>Completas <small>(oración de la noche)</small></h3>
     <p>Examen de conciencia · Invocación · Himno · Salmodia (generalmente el Salmo 90/91) · Lectura breve · Responsorio (<i>En tus manos, Señor</i>) · Cántico de Simeón (<i>Nunc dimittis</i>) · Oración final · Antífona mariana final.</p>
+    <h2>3. Cómo se cantan los salmos (Suñol, <i>Método completo de canto gregoriano</i>, lecciones 22–24)</h2>
+    <ul>
+      <li><b>Entonación:</b> solo en el primer verso de cada salmo, sobre sus 2 o 3 primeras sílabas, sea cual sea el acento. En el <i>Benedictus</i>, el <i>Magníficat</i> y el <i>Nunc dimittis</i>, en todos los versos.</li>
+      <li><b>Tenor</b> (cuerda de recitación): todo lo que va entre la entonación y la mediación, y entre la mediación y la terminación. Se canta con las leyes de la buena lectura: acentos claros y palabras bien unidas o separadas.</li>
+      <li><b>El acento no se alarga:</b> es un impulso ligero. Las notas sobre sílabas débiles, «con dulzura y agilidad, aunque sin perder nada de su duración».</li>
+      <li><b>Antes de cada pausa</b> se dobla la última nota, con un retardo discreto desde el penúltimo apoyo. En la pausa final el retardo es más marcado y la última nota más prolongada.</li>
+      <li><b>Pausa del asterisco *:</b> la última sílaba y el silencio suman tres tiempos, «como en la respiración»: dos para la sílaba y uno de silencio.</li>
+      <li><b>Flexa †:</b> bajar sin respirar largo.</li>
+      <li><b>Regla de oro:</b> nunca parar justo antes de una sílaba de la misma palabra.</li>
+      <li><b>Entre coro y coro</b>, según Suñol, no hay silencio: el otro coro sigue enseguida. Los monjes de tus grabaciones hacen una pausa más larga, y Cantus sigue tus grabaciones.</li>
+    </ul>
+    <h2>4. Libros de referencia</h2>
+    <ul>
+      <li><b>Suñol, Método completo de canto gregoriano</b> (en español): reglas de la salmodia, el ritmo y las pausas (arriba).</li>
+      <li><b>Liber Usualis</b> (1903): los ocho tonos salmódicos y las reglas de Solesmes.</li>
+      <li><b>Antiphonale Monasticum</b> (1934): tonos comunes benedictinos (oración, capítulo, lección breve, versículos, «Benedicamus Domino»).</li>
+      <li><b>Liber Hymnarius</b> (1983): himnos en latín con su melodía, el salmo 94 del invitatorio en todos los tonos, los responsorios de Vigilias y el propio monástico.</li>
+      <li><b>Grabaciones de los monjes</b> (8-III, 1-III, 18-II y 15-II-2026 y la serie «Canto de la Liturgia de las Horas»): de ellas salen la tonalidad y el paso de cada hora.</li>
+    </ul>
     <h2>Notas de la app</h2>
     <ul>
       <li>Cuando la hora es la primera del día, antes va el <b>Invitatorio</b> (<i>Señor, ábreme los labios</i> y el salmo 94 con su antífona).</li>
@@ -1375,6 +1394,8 @@ const Motor = (() => {
         if (s.rol === 'acento') dur = S * 1.12;            // acento ligero (Solesmes): eleva, apenas alarga
         if (s.rol === 'entonacion') dur = S * 1.1;
         if (ultima && finalLargo) dur = S * fFinal;
+        // v2.60: retardo discreto antes de la pausa (Suñol, Método completo, n. 55 y 126): la voz se ensancha desde el penúltimo apoyo
+        if (finalLargo && !ultima) { const k = sils.length - 1 - i; if (k === 1) dur *= 1.12; else if (k === 2) dur *= 1.06; }
         const notas = s.notas || [tenorT - sh];
         const dn = dur / notas.length * (notas.length > 1 ? 1.25 : 1);
         notas.forEach((m, j) => {
@@ -4047,7 +4068,7 @@ const EJEMPLOS = [
 ];
 const API = { activo: false };
 const CELULAR = true;            // la misma página sirve al PC (servidor.py) y al celular (sw.js con la base en el teléfono)
-const VERSION_APP = '2.59.0';
+const VERSION_APP = '2.60.0';
 let piezas = [...EJEMPLOS];
 let actual = piezas[0];
 
