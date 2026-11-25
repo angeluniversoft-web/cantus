@@ -101,6 +101,30 @@ main{display:flex;flex-direction:column;gap:18px;min-width:0}
 .doc-texto h3{font-size:1.15em;margin:1em 0 .2em}.doc-texto h3 small{font-weight:400;color:var(--tinta-2);font-size:.75em}
 .doc-texto li{margin:.35em 0}.doc-texto p{margin:.3em 0 .8em}
 /* v2.58: barra fija para pausar o detener mientras suena (sobre todo en el celular) */
+/* v2.62: paso a paso, como en el libro: una sola parte a la vez */
+.of-partes.modo-libro .parte{display:none}
+.of-partes.modo-libro .parte.lb-actual{display:block;padding-bottom:12px}
+.of-partes.modo-libro .parte.lb-actual .bloque{display:none}
+.of-partes.modo-libro .parte.lb-actual .bloque.lb-actual{display:block}
+.of-partes.modo-libro .parte.lb-actual .verso,.of-partes.modo-libro .parte.lb-actual .texto-libre{font-size:1.18em;line-height:1.75}
+.of-partes.modo-libro .parte-cab h3{font-size:1.3rem}
+.lb-rubrica{margin:6px 0 10px;padding:8px 12px;border-left:4px solid var(--rubrica);background:color-mix(in srgb, var(--rubrica) 7%, transparent);font:500 1rem/1.45 var(--f-ui);color:var(--rubrica)}
+.lb-rubrica b{font-weight:700}
+.lb-rubrica small{display:block;color:var(--tinta-2);font-weight:400;margin-top:2px}
+.lb-rubrica small.lugar{color:var(--tinta);font-weight:600;margin-top:6px}
+body.libro-on{padding-bottom:110px}
+.libro-barra{position:fixed;left:0;right:0;bottom:0;z-index:999;display:flex;gap:8px;align-items:stretch;background:var(--hoja);border-top:1px solid var(--linea);box-shadow:0 -4px 18px rgba(0,0,0,.18);padding:8px max(10px, env(safe-area-inset-left, 0px)) max(8px, env(safe-area-inset-bottom, 0px))}
+.libro-barra .lb-nav{flex:0 0 auto;min-width:64px;font:700 1.05rem var(--f-ui);border-radius:12px;border:1px solid var(--linea);background:transparent;color:var(--tinta);padding:10px 16px;cursor:pointer}
+.libro-barra .lb-nav.prim{background:var(--rubrica);border-color:var(--rubrica);color:#fff}
+.libro-barra .lb-nav:disabled{opacity:.35}
+.libro-barra .lb-centro{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:4px;text-align:center}
+.libro-barra .lb-cuenta{font:600 .92rem var(--f-ui);color:var(--tinta);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.libro-barra .lb-acc{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;font:.82rem var(--f-ui)}
+.libro-barra .lb-acc button{font:600 .85rem var(--f-ui);padding:4px 12px;border-radius:999px;border:1px solid var(--linea);background:transparent;color:var(--tinta-2);cursor:pointer}
+.libro-barra .lb-acc #lb-oir{border-color:var(--rubrica);color:var(--rubrica)}
+.libro-barra .lb-auto{display:flex;gap:4px;align-items:center;color:var(--tinta-2)}
+body.libro-on .control-canto{bottom:calc(96px + env(safe-area-inset-bottom, 0px))}
+@media (max-width:560px){.libro-barra .lb-nav span{display:none}.libro-barra .lb-nav{min-width:58px;font-size:1.3rem}}
 .control-canto{position:fixed;left:50%;transform:translateX(-50%);bottom:max(14px, env(safe-area-inset-bottom, 0px));z-index:1000;display:flex;gap:10px;align-items:center;background:var(--hoja);border:1px solid var(--linea);border-radius:999px;padding:8px 12px;box-shadow:0 6px 24px rgba(0,0,0,.28);max-width:calc(100vw - 32px)}
 .control-canto .btn{min-height:48px;padding:0 20px;font-size:1.05rem;border-radius:999px;white-space:nowrap}
 body{padding-bottom:84px}
@@ -435,6 +459,7 @@ fieldset.oficio legend{font:700 .8rem var(--f-ui);color:var(--rubrica);padding:0
       <p class="aviso" id="of-nota" hidden></p>
       <div class="of-horas" role="tablist" id="of-horas"></div>
       <div class="acciones">
+        <button class="btn prim" id="of-libro" type="button"><span class="ico">📖</span> Paso a paso, como en el libro</button>
         <button class="btn prim" id="of-cantar" type="button"><span class="ico">♫</span> Cantar la hora completa</button>
         <button class="btn prim" id="of-dia" type="button"><span class="ico">☼</span> Cantar el día completo</button>
         <button class="btn prim" id="of-aprender" type="button"><span class="ico">✎</span> Aprender esta hora (escucha y repite)</button>
@@ -714,6 +739,12 @@ fieldset.oficio legend{font:700 .8rem var(--f-ui);color:var(--rubrica);padding:0
   </article>
 </div>
 <div class="toast" id="toast" hidden></div>
+<div class="libro-barra" id="libro-barra" hidden role="toolbar" aria-label="Paso a paso">
+  <button type="button" id="lb-ant" class="lb-nav" aria-label="Paso anterior">◀<span> Anterior</span></button>
+  <div class="lb-centro"><div class="lb-cuenta" id="lb-cuenta"></div>
+    <div class="lb-acc"><button type="button" id="lb-oir">▶ Escuchar</button><label class="lb-auto"><input type="checkbox" id="lb-auto"> que suene al pasar</label><button type="button" id="lb-salir" aria-label="Salir del paso a paso">✕ Salir</button></div></div>
+  <button type="button" id="lb-sig" class="lb-nav prim" aria-label="Paso siguiente"><span>Siguiente </span>▶</button>
+</div>
 <div class="control-canto" id="control-canto" hidden>
   <button type="button" id="cc-pausa" class="btn prim">⏸ Pausa</button>
   <button type="button" id="cc-parar" class="btn">■ Detener</button>
@@ -4069,7 +4100,7 @@ const EJEMPLOS = [
 ];
 const API = { activo: false };
 const CELULAR = true;            // la misma página sirve al PC (servidor.py) y al celular (sw.js con la base en el teléfono)
-const VERSION_APP = '2.61.0';
+const VERSION_APP = '2.62.1';
 let piezas = [...EJEMPLOS];
 let actual = piezas[0];
 
@@ -4555,7 +4586,7 @@ function terminar() {
 function detener() {
   if (refAudio) pararReferencia();          // v2.61: también el fragmento de referencia
   if (PAUSADO || PENDIENTE) { PAUSADO = false; PENDIENTE = null; try { if (ctx && ctx.state === 'suspended') ctx.resume(); } catch (e) {} try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} }
-  if (typeof OF !== 'undefined') { OF.cadena = false; clearTimeout(OF.espera); clearInterval(OF.intGrab); if (OF.audioHora) { try { OF.audioHora.pause(); } catch (e) {} OF.audioHora = null; } }
+  if (typeof OF !== 'undefined') { OF.limite = null; OF.cadena = false; clearTimeout(OF.espera); clearInterval(OF.intGrab); if (OF.audioHora) { try { OF.audioHora.pause(); } catch (e) {} OF.audioHora = null; } }
   if (window.speechSynthesis) speechSynthesis.cancel();
   if (ctx) nodos.forEach(n => { try { n.stop && n.stop(); } catch (e) {} try { n.disconnect(); } catch (e) {} });
   nodos = []; terminar();
@@ -5177,12 +5208,94 @@ function renderOficio() {
     bls.forEach(([b, i]) => { if (b.tipo !== 'falta') renderBloque(b, i, card); });
     cont.appendChild(card);
   });
+  if (LIBRO.activo) { libroArmar(); libroMostrar(false); }   // v2.62: al cambiar de fecha u hora, el paso a paso sigue
 }
 function marcarBloque(i) {
   document.querySelectorAll('.parte.sonando').forEach(x => x.classList.remove('sonando'));
   if (i < 0) return;
   const caja = $('ob' + i); if (!caja) return;
-  const card = caja.closest('.parte'); if (card) { card.classList.add('sonando'); card.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+  if (LIBRO.activo) libroIrBloque(i);
+  const card = caja.closest('.parte'); if (card) { card.classList.add('sonando'); if (!LIBRO.activo) card.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+}
+/* v2.62: «Paso a paso, como en el libro»: una sola parte a la vez, en el orden del tomo, con su rúbrica;
+   se avanza con «Siguiente» (o las flechas del teclado). La hora sigue armada igual: mismo orden, mismos textos y tonos. */
+var LIBRO = { activo: false, k: 0, pasos: [], clave: '' };
+/* v2.62.1: en qué sección del tomo está cada paso, para seguirlo en el libro impreso (las páginas de las copias digitales no son las de la edición del usuario) */
+const MESES_L = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const ORDINARIO_L = new Set(['intro', 'inv-v', 'pn', 'fin', 'examen', 'mariana', 'kyrie', 'tedecet']);
+function libroPiezaDe(b, parte) {
+  if (!b) return parte && parte.piezas && parte.piezas[0] || null;
+  if (b.pieza) return b.pieza;
+  if (b.tipo === 'antifona' && parte && parte.canto === 'evangelico' && parte.antPieza) return parte.antPieza;
+  if (b.tipo === 'antifona') { const i = OF.bloques.indexOf(b), d = b.cierre ? -1 : 1; for (let j = i + d; j >= 0 && j < OF.bloques.length && OF.bloques[j].parte === b.parte; j += d) if (OF.bloques[j].pieza) return OF.bloques[j].pieza; }
+  return piezaDeBloque(b) || (parte && parte.piezas && parte.piezas[0]) || null;
+}
+function libroLugar(p, parte, ar) {
+  const cal = ar.cal || {}, R = O.ROM, tomo = 'Tomo ' + R[(p && p.tomo) || cal.tomo];
+  const horaTxt = (p && p.hora) || ar.horaDatos || ar.hora;
+  const tiempoTxt = { Adviento: 'Adviento', Navidad: 'Navidad', Cuaresma: 'Cuaresma', 'Semana Santa': 'Semana Santa', Pascua: 'Tiempo pascual', Ordinario: 'Tiempo ordinario' };
+  let sec;
+  if (!p) sec = ORDINARIO_L.has(parte && parte.id) ? 'Ordinario' : null;
+  else if (p.fecha) { const [m, d] = String(p.fecha).split('-').map(Number); sec = 'Propio de los santos · ' + d + ' de ' + MESES_L[m]; }
+  else if (/^(Común|Oficio de difuntos)/.test(p.celebracion || '')) sec = 'Comunes · ' + p.celebracion;
+  else if (p.celebracion) sec = 'Propio del tiempo · ' + p.celebracion;
+  else if (p.tiempo && p.tiempo !== 'Ordinario') sec = 'Propio del tiempo · ' + (tiempoTxt[p.tiempo] || p.tiempo) + (p.semana_tiempo ? ' · semana ' + R[p.semana_tiempo] : '') + (p.dia ? ' · ' + p.dia : '');
+  else if (p.semana) sec = 'Salterio · semana ' + R[p.semana] + (p.dia ? ' · ' + p.dia : '');
+  else if (p.tiempo === 'Ordinario' && p.semana_tiempo) sec = 'Propio del tiempo · Tiempo ordinario · semana ' + R[p.semana_tiempo] + (p.dia ? ' · ' + p.dia : '');
+  else sec = 'Ordinario';
+  if (!sec) return '';
+  return '📖 En tu ' + tomo + ': ' + sec + (sec === 'Ordinario' ? '' : ' · ' + horaTxt) + (p && p.pagina ? ' (p. ' + p.pagina + ' en la copia digital; en tu edición puede ser otra)' : '');
+}
+function libroRubrica(b, parte, nAnt) {
+  const ref = b ? libroLugar(libroPiezaDe(b, parte), parte, OF.armada) : '';
+  const sal = parte && parte.canto === 'salmodia', txt = b ? textoBloque(b).toLowerCase() : '';
+  let r = '';
+  if (!b) r = parte && parte.falta ? 'Esta parte no está todavía en tu biblioteca: búscala en tu libro (' + parte.falta.replace(/^[^:]*:\s*/, '').replace(/[.\s]+$/, '') + ').' : 'Rúbrica.';
+  else if (b.tipo === 'antifona' && !b.cierre) r = (sal ? '<b>Antífona ' + nAnt + '.</b> ' : '<b>Antífona.</b> ') + 'El cantor la entona; todos la siguen.';
+  else if (b.tipo === 'antifona') r = '<b>Se repite la antífona.</b>';
+  else if (b.tipo === 'salmo') r = '<b>' + (b.encabezado || (parte.canto === 'evangelico' ? 'Cántico evangélico' : sal ? 'Salmo' : parte.nombre)) + '.</b> Los coros alternan verso a verso; pausa en el «*».' + (/gloria al padre/.test(txt) ? ' Al final, «Gloria al Padre».' : '');
+  else if (b.tipo === 'himno') r = '<b>Himno.</b> Todos, estrofa por estrofa.';
+  else if (b.tipo === 'lectura') r = '<b>Lectura.</b> La proclama uno solo; los demás escuchan.' + (b.encabezado ? '<small>' + b.encabezado + '</small>' : '');
+  else if (b.tipo === 'versiculo') r = '<b>Versículo.</b> V/ el que preside · R/ todos.';
+  else if (b.tipo === 'preces') r = '<b>Preces.</b> Tras cada intención, todos responden.';
+  else if (b.tipo === 'padrenuestro') r = '<b>Padre nuestro.</b> Todos.';
+  else if (b.tipo === 'oracion') r = '<b>Oración.</b> El que preside; todos: Amén.';
+  else if (b.tipo === 'silencio') r = '<b>Silencio.</b>';
+  else r = '<b>' + (parte.nombre || '') + '.</b>';
+  if (parte && parte.rubrica && !(b && b.tipo === 'antifona' && b.cierre)) r += '<small>' + parte.rubrica + '</small>';
+  return r + (ref ? '<small class="lugar">' + ref + '</small>' : '');
+}
+function libroArmar() {
+  const cont = $('of-partes'); LIBRO.pasos = [];
+  cont.querySelectorAll('.parte').forEach(card => {
+    const bl = [...card.querySelectorAll('.bloque')].filter(x => /^ob\d+$/.test(x.id));
+    if (!bl.length) LIBRO.pasos.push({ card, caja: null, i: -1 });
+    else bl.forEach(caja => LIBRO.pasos.push({ card, caja, i: +caja.id.slice(2) }));
+  });
+  const clave = OF.fecha + '|' + OF.hora + '|' + LIBRO.pasos.length; if (clave !== LIBRO.clave) { LIBRO.clave = clave; LIBRO.k = 0; }
+  LIBRO.k = Math.max(0, Math.min(LIBRO.k, LIBRO.pasos.length - 1));
+}
+function libroMostrar(desplazar = true) {
+  const cont = $('of-partes'); if (!LIBRO.activo || !LIBRO.pasos.length) return;
+  cont.querySelectorAll('.lb-actual').forEach(x => x.classList.remove('lb-actual')); cont.querySelectorAll('.lb-rubrica').forEach(x => x.remove());
+  const ps = LIBRO.pasos[LIBRO.k]; ps.card.classList.add('lb-actual');
+  const b = ps.i >= 0 ? OF.bloques[ps.i] : null, parte = b ? b.parte : OF.armada.partes.find(p => ps.card.id.startsWith('op-' + p.id + '-'));
+  let nAnt = 0; if (b && b.tipo === 'antifona' && !b.cierre) for (let j = 0; j <= ps.i; j++) { const x = OF.bloques[j]; if (x.parte === b.parte && x.tipo === 'antifona' && !x.cierre) nAnt++; }
+  const rb = document.createElement('div'); rb.className = 'lb-rubrica'; rb.innerHTML = libroRubrica(b, parte, nAnt);
+  if (ps.caja) { ps.caja.classList.add('lb-actual'); ps.caja.before(rb); } else ps.card.querySelector('.parte-cab').after(rb);
+  const nombre = (ps.card.querySelector('h3') || {}).textContent || '';
+  $('lb-cuenta').textContent = 'Paso ' + (LIBRO.k + 1) + ' de ' + LIBRO.pasos.length + ' · ' + nombre;
+  $('lb-ant').disabled = LIBRO.k === 0; $('lb-sig').disabled = LIBRO.k >= LIBRO.pasos.length - 1;
+  $('lb-oir').disabled = !(b && b.tl && (b.tl.eventos.length || b.tipo === 'silencio'));
+  if (desplazar) ps.card.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+function libroIrBloque(i) { const k = LIBRO.pasos.findIndex(p => p.i === i); if (k >= 0 && k !== LIBRO.k) { LIBRO.k = k; libroMostrar(); } }
+async function libroOir() { const ps = LIBRO.pasos[LIBRO.k]; if (!ps || ps.i < 0) return; detener(); await prepararVoz(); OF.limite = ps.i; $('lb-oir').textContent = '■ Detener'; tocarBloque(ps.i); }
+function libroFinPaso() { if (LIBRO.activo) $('lb-oir').textContent = '▶ Escuchar'; }
+function libroMover(d) { const k = LIBRO.k + d; if (k < 0 || k >= LIBRO.pasos.length) return; detener(); libroFinPaso(); LIBRO.k = k; libroMostrar(); if (d > 0 && $('lb-auto').checked) libroOir(); }
+function libroActivar(on) {
+  LIBRO.activo = on; $('of-partes').classList.toggle('modo-libro', on); document.body.classList.toggle('libro-on', on); $('libro-barra').hidden = !on;
+  if (on) { libroArmar(); libroMostrar(); } else { $('of-partes').querySelectorAll('.lb-rubrica').forEach(x => x.remove()); $('of-partes').querySelectorAll('.lb-actual').forEach(x => x.classList.remove('lb-actual')); }
 }
 /** Horas ya rezadas hoy (para saber dónde va el Invitatorio, OGLH 35) */
 function rezadasHoy() { try { const r = JSON.parse(localStorage.getItem('cantus-rezadas') || '{}'); return r[OF.fecha] || []; } catch (e) { return []; } }
@@ -5715,10 +5828,11 @@ function silencioTras(b) { const e = b && b.parte && !b.parte.sub ? perfilDe(b.p
 function tocarBloque(i) {
   if (PAUSADO) { PENDIENTE = () => tocarBloque(i); return; }   // v2.58: en pausa, la hora sigue donde iba al reanudar
   while (i < OF.bloques.length && !(OF.bloques[i].tl && (OF.bloques[i].tl.eventos.length || OF.bloques[i].tipo === 'silencio'))) i++;
+  if (OF.limite != null && i > OF.limite) { OF.limite = null; OF.cadena = false; marcarBloque(-1); libroFinPaso(); return; }   // v2.62: «Escuchar» un solo paso
   if (i >= OF.bloques.length) { OF.cadena = false; marcarBloque(-1); toast('Fin de ' + OF.armada.titulo + '.'); registrarPractica('Oficio: ' + OF.armada.titulo, O.unir(OF.bloques).duracion);
     if (DIACOMP) OF.espera = setTimeout(() => { if (DIACOMP) siguienteHoraDia(); }, 4000);              // día completo: pasa a la hora siguiente
     return; }
-  const hg = !OF.sinHoraGrabada && horaGrabada();
+  const hg = !OF.sinHoraGrabada && OF.limite == null && horaGrabada();
   if (hg) return tocarHoraGrabada(hg, i);                  // v2.52: la hora entera con la grabación de los monjes
   const b = OF.bloques[i]; OF.cursor = i;
   if (b.tipo === 'silencio') {
@@ -5741,6 +5855,14 @@ $('vista-pieza').onclick = () => vista('pieza');
   $('doc-mas').onclick = () => { tam = Math.min(2.4, tam + 0.15); pon(); };
   $('doc-menos').onclick = () => { tam = Math.max(1.0, tam - 0.15); pon(); };
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('doc-ref').hidden) $('doc-cerrar').onclick(); }); }
+$('of-libro').onclick = () => { if (!OF.bloques) return; libroActivar(true); };
+$('lb-salir').onclick = () => { detener(); libroActivar(false); };
+$('lb-ant').onclick = () => libroMover(-1); $('lb-sig').onclick = () => libroMover(1);
+$('lb-oir').onclick = () => { if (OF.limite != null || OF.cadena) { detener(); libroFinPaso(); } else libroOir(); };
+try { $('lb-auto').checked = localStorage.getItem('cantus-libro-auto') === '1'; } catch (e) {}
+$('lb-auto').onchange = () => { try { localStorage.setItem('cantus-libro-auto', $('lb-auto').checked ? '1' : '0'); } catch (e) {} };
+document.addEventListener('keydown', e => { if (!LIBRO.activo || /INPUT|SELECT|TEXTAREA/.test((e.target || {}).tagName || '')) return;
+  if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); libroMover(1); } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); libroMover(-1); } });
 $('of-cantar').onclick = () => { const cambia = guiaForzada; guiaForzada = false; if (cambia) renderOficio(); cantarOficio(0); };
 $('of-guiainst').onclick = () => { const cambia = !guiaForzada; guiaForzada = true; if (cambia) renderOficio(); cantarOficio(0); };
 $('of-stop').onclick = () => { DIACOMP = null; detener(); };
@@ -5774,6 +5896,8 @@ window.__cantusMonjes = async (fecha, hora) => { window.__cantusOficio(fecha, ho
 window.__cantusHora = { clave: () => { const h = horaGrabada(); return h ? h.clave : null; }, cantar: (i) => tocarBloque(i || 0), detener: () => detener(), estado: () => ({ audio: OF.audioHora ? [OF.audioHora.paused, Math.round(OF.audioHora.currentTime), Math.round(OF.audioHora.duration)] : null, cursor: OF.cursor, parte: OF.bloques[OF.cursor] && OF.bloques[OF.cursor].parte && OF.bloques[OF.cursor].parte.id, sonando: [...document.querySelectorAll('.parte.sonando .bloque')].map(x => x.id).join(',') }), saltar: (t) => { if (OF.audioHora) OF.audioHora.currentTime = t; }, aprendiz: () => opOficio().aprendiz, voz: () => A.voz_canto };
 window.__cantusRefs = (fecha, hora) => { window.__cantusOficio(fecha, hora); return OF.armada.partes.map(p => p.id + '=' + refsDeParte(p).map(r => r.perfil + (r.n != null ? ':' + r.n : '')).join(',')).filter(x => !/=$/.test(x)); };
 window.__cantusRefEstado = () => [refAudio && !refAudio.paused, refAudio && Math.round(refAudio.currentTime * 10) / 10, refAudio && Math.round(refAudio.duration), refAudio && refAudio.playbackRate, refBoton && refBoton.textContent, document.querySelectorAll('.ref-monjes.sonando').length];
+window.__cantusLugar = (p, parteId) => libroLugar(p, { id: parteId }, OF.armada);
+window.__cantusLibro = { abrir: () => $('of-libro').onclick(), sig: () => libroMover(1), ant: () => libroMover(-1), estado: () => ({ k: LIBRO.k, n: LIBRO.pasos.length, cuenta: $('lb-cuenta').textContent, rubrica: (document.querySelector('.lb-rubrica') || {}).textContent, visibles: [...document.querySelectorAll('#of-partes .bloque')].filter(x => x.offsetParent).map(x => x.id), oir: $('lb-oir').textContent, limite: OF.limite }), oir: () => libroOir(), salir: () => $('lb-salir').onclick(), lista: () => LIBRO.pasos.map((p, k) => { LIBRO.k = k; libroMostrar(false); return (k + 1) + '. ' + ((p.card.querySelector('h3') || {}).textContent || '') + ' — ' + document.querySelector('.lb-rubrica').textContent; }) };
 window.__cantusCobertura = (fecha, hora) => { window.__cantusOficio(fecha, hora); const r = {}; ['intro', 'himno', 'salmodia', 'evang'].forEach(id => { perfilBase.ultimo = null; perfilBase({ id }); r[id] = perfilBase.ultimo; }); r.cal = OF.armada.cal.tiempo + ' ' + OF.armada.cal.dia + ' s' + OF.armada.cal.salterio; return r; };
 window.__cantusTL = (i) => { const b = OF.bloques[i]; return b && b.tl ? b.tl.eventos.map(e => [e.sil ? e.sil.txt : '', +e.t.toFixed(2), +e.d.toFixed(2), e.midi]) : null; };
 window.__cantusPerfil = (fecha, hora, id) => { window.__cantusOficio(fecha, hora); const e = perfilDe({ id, perfilId: /^examen-/.test(id) ? id : undefined }); return e ? (e.tenor || '') + ' ' + (e.modo || '') + ' ' + (e.silencio || '') : null; };
