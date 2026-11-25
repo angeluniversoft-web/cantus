@@ -111,6 +111,9 @@ main{display:flex;flex-direction:column;gap:18px;min-width:0}
 .lb-rubrica{margin:6px 0 10px;padding:8px 12px;border-left:4px solid var(--rubrica);background:color-mix(in srgb, var(--rubrica) 7%, transparent);font:500 1rem/1.45 var(--f-ui);color:var(--rubrica)}
 .lb-rubrica b{font-weight:700}
 .lb-rubrica small{display:block;color:var(--tinta-2);font-weight:400;margin-top:2px}
+.lb-rubrica .salto{font:700 1.02rem var(--f-ui);color:#fff;background:var(--rubrica);border-radius:8px;padding:6px 10px;margin:-2px 0 8px}
+.lb-rubrica .regla{display:block;margin-top:6px;font-style:italic}
+.lb-rubrica .mapa{margin-top:8px;color:var(--tinta)}.lb-rubrica .mapa ol{margin:4px 0 0 1.2em;padding:0}.lb-rubrica .mapa li{margin:2px 0}
 .lb-rubrica small.lugar{color:var(--tinta);font-weight:600;margin-top:6px}
 body.libro-on{padding-bottom:110px}
 .libro-barra{position:fixed;left:0;right:0;bottom:0;z-index:999;display:flex;gap:8px;align-items:stretch;background:var(--hoja);border-top:1px solid var(--linea);box-shadow:0 -4px 18px rgba(0,0,0,.18);padding:8px max(10px, env(safe-area-inset-left, 0px)) max(8px, env(safe-area-inset-bottom, 0px))}
@@ -4100,7 +4103,7 @@ const EJEMPLOS = [
 ];
 const API = { activo: false };
 const CELULAR = true;            // la misma página sirve al PC (servidor.py) y al celular (sw.js con la base en el teléfono)
-const VERSION_APP = '2.62.1';
+const VERSION_APP = '2.63.0';
 let piezas = [...EJEMPLOS];
 let actual = piezas[0];
 
@@ -5233,6 +5236,13 @@ function libroPiezaDe(b, parte) {
 function libroLugar(p, parte, ar) {
   const cal = ar.cal || {}, R = O.ROM, tomo = 'Tomo ' + R[(p && p.tomo) || cal.tomo];
   const horaTxt = (p && p.hora) || ar.horaDatos || ar.hora;
+  const sec = libroSeccion(p, parte, ar);
+  if (!sec) return '';
+  return '📖 En tu ' + tomo + ': ' + sec + (sec === 'Ordinario' ? '' : ' · ' + horaTxt) + (p && p.pagina ? ' (p. ' + p.pagina + ' en la copia digital; en tu edición puede ser otra)' : '');
+}
+/* v2.63: la sección del tomo de un paso (sin la hora); sirve para avisar los saltos de una sección a otra */
+function libroSeccion(p, parte, ar) {
+  const cal = ar.cal || {}, R = O.ROM;
   const tiempoTxt = { Adviento: 'Adviento', Navidad: 'Navidad', Cuaresma: 'Cuaresma', 'Semana Santa': 'Semana Santa', Pascua: 'Tiempo pascual', Ordinario: 'Tiempo ordinario' };
   let sec;
   if (!p) sec = ORDINARIO_L.has(parte && parte.id) ? 'Ordinario' : null;
@@ -5243,8 +5253,36 @@ function libroLugar(p, parte, ar) {
   else if (p.semana) sec = 'Salterio · semana ' + R[p.semana] + (p.dia ? ' · ' + p.dia : '');
   else if (p.tiempo === 'Ordinario' && p.semana_tiempo) sec = 'Propio del tiempo · Tiempo ordinario · semana ' + R[p.semana_tiempo] + (p.dia ? ' · ' + p.dia : '');
   else sec = 'Ordinario';
-  if (!sec) return '';
-  return '📖 En tu ' + tomo + ': ' + sec + (sec === 'Ordinario' ? '' : ' · ' + horaTxt) + (p && p.pagina ? ' (p. ' + p.pagina + ' en la copia digital; en tu edición puede ser otra)' : '');
+  const rs = parte && parte.rubrica && parte.rubrica.match(/salmodia del (\w+) de la semana (\w+)/i);   // p. ej. Ceniza: «salmodia del viernes de la semana III»
+  if (rs && parte.id === 'salmodia' && (!p || !p.semana)) sec = 'Salterio · semana ' + rs[2] + ' · ' + rs[1][0].toUpperCase() + rs[1].slice(1);
+  if (!sec && parte && parte.falta) {                  // la parte no está en la biblioteca: la sección sale del aviso «dónde está»
+    const f = parte.falta, m = f.match(/Propio de «([^»]+)»/);
+    sec = /Ordinario/.test(f) ? 'Ordinario' : m ? 'Propio del tiempo · ' + m[1] : /salterio/i.test(f) ? 'Salterio · semana ' + R[cal.salterio] + ' · ' + cal.dia
+      : /Propio del (tiempo|día)/.test(f) || /Oficio de lectura del/.test(f) ? 'Propio del tiempo · ' + (cal.celebracion || cal.dia) : /Común/.test(f) ? 'Comunes' : null;
+  }
+  return sec;
+}
+function libroSeccionPaso(ps) {
+  if (!ps) return null;
+  const b = ps.i >= 0 ? OF.bloques[ps.i] : null, parte = b ? b.parte : OF.armada.partes.find(p => ps.card.id.startsWith('op-' + p.id + '-'));
+  return libroSeccion(libroPiezaDe(b, parte), parte, OF.armada);
+}
+/* Rúbricas del Ordinario que mandan omitir, añadir o cambiar algo (redacción propia, según la OGLH) */
+function libroReglas(b, parte) {
+  const ar = OF.armada, cal = ar.cal || {}, cua = /Cuaresma|Semana Santa/.test(cal.tiempo || ''), r = [];
+  if (!parte) return r;
+  const primera = !b || OF.bloques.findIndex(x => x.parte === parte) === OF.bloques.indexOf(b);
+  if (!primera) return r;
+  if (parte.id === 'intro') {
+    if (ar.hora === 'Laudes' || ar.hora === 'Oficio de lectura') r.push('Si esta es la primera hora que rezas hoy, empieza con el Invitatorio («Señor, ábreme los labios») y se omite esta invocación (OGLH 34-35).');
+    r.push(cua ? 'En Cuaresma no se dice «Aleluya» después del Gloria.' : 'Después del Gloria se dice «Aleluya».');
+  }
+  if (parte.id === 'evang') r.push('La antífona está en el Propio (o en el Salterio); el texto del cántico, en el Ordinario. La antífona se repite al final.');
+  if (parte.id === 'salmodia' && /Tercia|Sexta|Nona/.test(ar.hora)) r.push('Si rezas solo una de las horas menores, toma la salmodia del día; en las otras dos, la salmodia complementaria del Ordinario (OGLH 81-83).');
+  if (parte.id === 'tedeum') r.push('El Te Deum se dice los domingos (no en Cuaresma), en las solemnidades y fiestas y en las octavas (OGLH 68). Está en el Ordinario.');
+  if (parte.id === 'fin' && (ar.hora === 'Laudes' || ar.hora === 'Vísperas')) r.push('Si preside un sacerdote o diácono, despide con la bendición; si no, se dice «El Señor nos bendiga…» (OGLH 54).');
+  if (parte.id === 'oracion' && ar.hora !== 'Completas') r.push('La oración es la del día: en el Propio del tiempo (o del santo); en las ferias del Tiempo ordinario, en el Salterio.');
+  return r;
 }
 function libroRubrica(b, parte, nAnt) {
   const ref = b ? libroLugar(libroPiezaDe(b, parte), parte, OF.armada) : '';
@@ -5282,6 +5320,14 @@ function libroMostrar(desplazar = true) {
   const b = ps.i >= 0 ? OF.bloques[ps.i] : null, parte = b ? b.parte : OF.armada.partes.find(p => ps.card.id.startsWith('op-' + p.id + '-'));
   let nAnt = 0; if (b && b.tipo === 'antifona' && !b.cierre) for (let j = 0; j <= ps.i; j++) { const x = OF.bloques[j]; if (x.parte === b.parte && x.tipo === 'antifona' && !x.cierre) nAnt++; }
   const rb = document.createElement('div'); rb.className = 'lb-rubrica'; rb.innerHTML = libroRubrica(b, parte, nAnt);
+  libroReglas(b, parte).forEach(t => { const x = document.createElement('span'); x.className = 'regla'; x.textContent = '℟ ' + t; rb.appendChild(x); });
+  const secA = LIBRO.k > 0 ? libroSeccionPaso(LIBRO.pasos[LIBRO.k - 1]) : null, secB = libroSeccionPaso(ps);
+  if (secA && secB && secA !== secB) { const x = document.createElement('div'); x.className = 'salto'; x.textContent = '↪ Salta en tu libro: deja «' + secA + '» y ve a «' + secB + '».'; rb.prepend(x); }
+  if (LIBRO.k === 0) {                                  // mapa de la hora: dónde poner las cintas
+    const m = new Map(); LIBRO.pasos.forEach(q => { const sc = libroSeccionPaso(q); if (!sc) return; const nom = ((q.card.querySelector('h3') || {}).textContent || '').replace(/^\d+\.\s*/, '').replace(/\s*\(.*\)$/, ''); if (!m.has(sc)) m.set(sc, []); if (!m.get(sc).includes(nom)) m.get(sc).push(nom); });
+    if (m.size) { const x = document.createElement('div'); x.className = 'mapa'; x.innerHTML = '<b>🔖 Cintas para esta hora (Tomo ' + O.ROM[OF.armada.cal.tomo] + '):</b>';
+      const ol = document.createElement('ol'); [...m].forEach(([sc, ps2]) => { const li = document.createElement('li'); li.textContent = sc + ' — ' + ps2.join(', '); ol.appendChild(li); }); x.appendChild(ol); rb.appendChild(x); }
+  }
   if (ps.caja) { ps.caja.classList.add('lb-actual'); ps.caja.before(rb); } else ps.card.querySelector('.parte-cab').after(rb);
   const nombre = (ps.card.querySelector('h3') || {}).textContent || '';
   $('lb-cuenta').textContent = 'Paso ' + (LIBRO.k + 1) + ' de ' + LIBRO.pasos.length + ' · ' + nombre;
@@ -5897,6 +5943,7 @@ window.__cantusHora = { clave: () => { const h = horaGrabada(); return h ? h.cla
 window.__cantusRefs = (fecha, hora) => { window.__cantusOficio(fecha, hora); return OF.armada.partes.map(p => p.id + '=' + refsDeParte(p).map(r => r.perfil + (r.n != null ? ':' + r.n : '')).join(',')).filter(x => !/=$/.test(x)); };
 window.__cantusRefEstado = () => [refAudio && !refAudio.paused, refAudio && Math.round(refAudio.currentTime * 10) / 10, refAudio && Math.round(refAudio.duration), refAudio && refAudio.playbackRate, refBoton && refBoton.textContent, document.querySelectorAll('.ref-monjes.sonando').length];
 window.__cantusLugar = (p, parteId) => libroLugar(p, { id: parteId }, OF.armada);
+window.__cantusLibroTexto = () => (document.querySelector('.lb-rubrica') || {}).innerText;
 window.__cantusLibro = { abrir: () => $('of-libro').onclick(), sig: () => libroMover(1), ant: () => libroMover(-1), estado: () => ({ k: LIBRO.k, n: LIBRO.pasos.length, cuenta: $('lb-cuenta').textContent, rubrica: (document.querySelector('.lb-rubrica') || {}).textContent, visibles: [...document.querySelectorAll('#of-partes .bloque')].filter(x => x.offsetParent).map(x => x.id), oir: $('lb-oir').textContent, limite: OF.limite }), oir: () => libroOir(), salir: () => $('lb-salir').onclick(), lista: () => LIBRO.pasos.map((p, k) => { LIBRO.k = k; libroMostrar(false); return (k + 1) + '. ' + ((p.card.querySelector('h3') || {}).textContent || '') + ' — ' + document.querySelector('.lb-rubrica').textContent; }) };
 window.__cantusCobertura = (fecha, hora) => { window.__cantusOficio(fecha, hora); const r = {}; ['intro', 'himno', 'salmodia', 'evang'].forEach(id => { perfilBase.ultimo = null; perfilBase({ id }); r[id] = perfilBase.ultimo; }); r.cal = OF.armada.cal.tiempo + ' ' + OF.armada.cal.dia + ' s' + OF.armada.cal.salterio; return r; };
 window.__cantusTL = (i) => { const b = OF.bloques[i]; return b && b.tl ? b.tl.eventos.map(e => [e.sil ? e.sil.txt : '', +e.t.toFixed(2), +e.d.toFixed(2), e.midi]) : null; };
