@@ -5,7 +5,7 @@
    La página es la MISMA que la del PC (web/index.html): solo cambia quién contesta api/…
    Generado por src/build.py: no editar el archivo de celular/, sino src/celular/sw.src.js. */
 'use strict';
-const VERSION = '2.75';
+const VERSION = '2.75.1';
 const CACHE = 'cantus-app-' + VERSION;
 const L = {"EXT_AUDIO": {".wav": "audio/wav", ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".oga": "audio/ogg", ".m4a": "audio/mp4", ".webm": "audio/webm", ".flac": "audio/flac"}, "TIPOS": ["Antífona", "Cántico", "Cántico evangélico", "Ejercicio", "Himno", "Lectura", "Lectura breve", "Oración", "Preces", "Responsorio", "Responsorio breve", "Rúbrica", "Salmo", "Versículo"], "HORAS": ["Completas", "Hora intermedia", "I Vísperas", "Invitatorio", "Laudes", "Nona", "Oficio de lectura", "Sexta", "Tercia", "Vísperas"], "TIEMPOS": ["Adviento", "Cuaresma", "Navidad", "Ordinario", "Pascua", "Semana Santa"], "SECCIONES": ["Antífona mariana", "Común", "Conclusión", "Cántico evangélico", "Examen de conciencia", "Himno", "Introducción", "Invitatorio", "Lectura breve", "Melodía", "Oración", "Padre nuestro", "Preces", "Primera lectura", "Responsorio 1", "Responsorio 2", "Responsorio 3", "Responsorio breve", "Salmo invitatorio", "Salmodia", "Salmodia complementaria", "Segunda lectura", "Te Deum", "Tercera lectura", "Versículo"], "DIAS": ["Domingo", "Jueves", "Lunes", "Martes", "Miércoles", "Sábado", "Viernes"], "TIPOS_DOC": ["Canto y música", "Documento del Magisterio", "Estudio o catequesis", "Liturgia de las Horas", "Otro", "Salterio"], "CONFIG_CLAVES": ["acustica", "ajuste", "alt", "aprendiz", "ayuda", "bordon", "cantor", "guia_estilo", "guia_instr", "guia_tempo", "instrumento", "mi_coro", "natural", "nivel", "notas", "oficio_hi", "oficio_inv", "oficio_lect", "oficio_mariana", "oficio_orden", "oficio_santos", "oficio_silencio", "perfil_tonal", "pref", "silaba", "soplo", "tesitura", "timbre", "voces_a", "voces_b", "vol", "voz", "voz_canto", "voz_clara"]};                                  // listas de validación, copiadas de servidor.py al construir
 const APP = ['./', './index.html', './manifest.webmanifest', './icono-192.png', './icono-512.png'];
@@ -441,6 +441,8 @@ async function importar(paq) {
         const p = porOrigen[String(au.pieza_origen || '')], nombre = String(au.nombre_original || 'audio.wav').slice(0, 200), mime = L.EXT_AUDIO[extDe(nombre)];
         if (!p || !mime || !au.audio_b64) continue;
         const blob = b64aBlob(au.audio_b64, mime);
+        const mot = String(au.motor || '');
+        if (/^(ref|monjes):/.test(mot) && !/^ref:mio:/.test(mot)) for (const v of (await prom(s.audios.index('pieza_id').getAll(p.id))).filter(a => a.motor === mot && !(a.nombre_original === nombre && a.bytes === blob.size))) await prom(s.audios.delete(v.id));   // v2.75.1: sustituye el fragmento anterior
         const ya = (await prom(s.audios.index('pieza_id').getAll(p.id))).some(a => a.nombre_original === nombre && a.bytes === blob.size);
         if (ya) continue;
         await prom(s.audios.add({ pieza_id: p.id, titulo: String(au.titulo || tallo(nombre)).slice(0, 160), motor: au.motor || null, nombre_original: nombre, mime, bytes: blob.size, modo: p.modo, tesitura: null, creado: ahora(), blob }));
